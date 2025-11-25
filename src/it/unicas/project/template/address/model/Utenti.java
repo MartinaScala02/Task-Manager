@@ -4,46 +4,46 @@ import java.util.ArrayList;
 import java.util.List;
 
 import javafx.beans.property.*;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 
 /**
- * Model class for a Amici.
+ * Model class for a Utenti.
  *
  * @author Mario Molinara
  */
-public class Amici {
+public class Utenti {
 
     private StringProperty nome;
     private StringProperty cognome;
-    private StringProperty telefono;
+    //private StringProperty telefono;
     private StringProperty email;
-    private StringProperty compleanno;
-    private IntegerProperty idAmici;  //wrapper
+    //private StringProperty compleanno;
+    private StringProperty password;
+    private IntegerProperty idUtenti;  //wrapper
 
     //private static String attributoStaticoDiEsempio;
 
     /**
      * Default constructor.
      */
-    public Amici() {
+    public Utenti() {
         this(null, null);
     }
 
-    public Amici(String nome, String cognome, String telefono, String email, String compleanno, Integer idColleghi) {
+    public Utenti(String nome, String cognome,/* String telefono,*/ String email, /*String compleanno,*/ Integer idColleghi) {
         this.nome = new SimpleStringProperty(nome);
         this.cognome = new SimpleStringProperty(cognome);
-        this.telefono = new SimpleStringProperty(telefono);
+       // this.telefono = new SimpleStringProperty(telefono);
         this.email = new SimpleStringProperty(email);
-        this.compleanno = new SimpleStringProperty(compleanno);
+        //this.compleanno = new SimpleStringProperty(compleanno);
         if (idColleghi != null){
-            this.idAmici = new SimpleIntegerProperty(idColleghi);
+            this.idUtenti = new SimpleIntegerProperty(idColleghi);
         } else {
-            this.idAmici = null;
+            this.idUtenti = null;
         }
+        this.password = new SimpleStringProperty("");
     }
 
     /**
@@ -52,28 +52,29 @@ public class Amici {
      * @param nome
      * @param cognome
      */
-    public Amici(String nome, String cognome) {
+    public Utenti(String nome, String cognome) {
         this.nome = new SimpleStringProperty(nome);
         this.cognome = new SimpleStringProperty(cognome);
         // Some initial dummy data, just for convenient testing.
-        this.telefono = new SimpleStringProperty("telefono");
+        // this.telefono = new SimpleStringProperty("telefono");
         this.email = new SimpleStringProperty("email@email.com");
-        this.compleanno = new SimpleStringProperty("24-10-2017");
-        this.idAmici = null;
+        this.password = new SimpleStringProperty("password");
+        //this.compleanno = new SimpleStringProperty("24-10-2017");
+        this.idUtenti = null;
     }
 
-    public Integer getIdAmici(){
-        if (idAmici == null){
-            idAmici = new SimpleIntegerProperty(-1);
+    public Integer getIdUtenti(){
+        if (idUtenti == null){
+            idUtenti = new SimpleIntegerProperty(-1);
         }
-        return idAmici.get();
+        return idUtenti.get();
     }
 
-    public void setIdAmici(Integer idAmici) {
-        if (this.idAmici == null){
-            this.idAmici = new SimpleIntegerProperty();
+    public void setIdUtenti(Integer idUtenti) {
+        if (this.idUtenti == null){
+            this.idUtenti = new SimpleIntegerProperty();
         }
-        this.idAmici.set(idAmici);
+        this.idUtenti.set(idUtenti);
     }
 
     public String getNome() {
@@ -100,7 +101,7 @@ public class Amici {
         return cognome;
     }
 
-    public String getTelefono() {
+    /* public String getTelefono() {
         return telefono.get();
     }
 
@@ -110,7 +111,7 @@ public class Amici {
 
     public StringProperty telefonoProperty() {
         return telefono;
-    }
+    }*/
 
     public String getEmail() {
         return email.get();
@@ -123,8 +124,15 @@ public class Amici {
     public StringProperty emailProperty() {
         return email;
     }
-    
-    public String getCompleanno() {
+
+    public String getPassword() {
+        return password.get();
+    }
+
+    public void setPassword(String password) {
+        this.password.set(password);
+    }
+    /*public String getCompleanno() {
         return compleanno.getValue();
     }
 
@@ -134,11 +142,11 @@ public class Amici {
 
     public StringProperty compleannoProperty() {
         return compleanno;
-    }
+    }*/
 
 
     public String toString(){
-        return nome.getValue() + ", " + cognome.getValue() + ", " + telefono.getValue() + ", " + email.getValue() + ", " + compleanno.getValue() + ", (" + idAmici.getValue() + ")";
+        return nome.getValue() + ", " + cognome.getValue() + ", " /*+ telefono.getValue() + ", " */ + email.getValue() + ", " + /*compleanno.getValue() + */", (" + idUtenti.getValue() + ")";
     }
 
 
@@ -147,38 +155,38 @@ public class Amici {
 
 
         // https://en.wikipedia.org/wiki/Observer_pattern
-        Amici collega = new Amici();
+        Utenti collega = new Utenti();
         collega.setNome("Ciao");
         MyChangeListener myChangeListener = new MyChangeListener();
         collega.nomeProperty().addListener(myChangeListener);
         collega.setNome("Mario");
 
 
-        collega.compleannoProperty().addListener(myChangeListener);
+        //collega.compleannoProperty().addListener(myChangeListener);
 
-        collega.compleannoProperty().addListener(
+        /*collega.compleannoProperty().addListener(
                 (ChangeListener) (o, oldVal, newVal) -> System.out.println("Compleanno property has changed!"));
 
         collega.compleannoProperty().addListener(
                 (o, old, newVal)-> System.out.println("Compleanno property has changed! (Lambda implementation)")
-        );
+        );*/
 
 
-        collega.setCompleanno("30-10-1971");
+       // collega.setCompleanno("30-10-1971");
 
 
 
         // Use Java Collections to create the List.
-        List<Amici> list = new ArrayList<>();
+        List<Utenti> list = new ArrayList<>();
 
         // Now add observability by wrapping it with ObservableList.
-        ObservableList<Amici> observableList = FXCollections.observableList(list);
+        ObservableList<Utenti> observableList = FXCollections.observableList(list);
         observableList.addListener(
           (ListChangeListener) change -> System.out.println("Detected a change! ")
         );
 
-        Amici c1 = new Amici();
-        Amici c2 = new Amici();
+        Utenti c1 = new Utenti();
+        Utenti c2 = new Utenti();
 
         c1.nomeProperty().addListener(
                 (o, old, newValue)->System.out.println("Ciao")
@@ -203,3 +211,4 @@ public class Amici {
 
 
 }
+

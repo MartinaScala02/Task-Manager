@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.prefs.Preferences;
 
-import it.unicas.project.template.address.model.Amici;
+import it.unicas.project.template.address.model.Utenti;
 import it.unicas.project.template.address.model.dao.mysql.DAOMySQLSettings;
 import it.unicas.project.template.address.view.*;
 import javafx.application.Application;
@@ -38,26 +38,28 @@ public class MainApp extends Application {
     /**
      * The data as an observable list of Colleghis.
      */
-    private ObservableList<Amici> colleghiData = FXCollections.observableArrayList();
+    private ObservableList<Utenti> colleghiData = FXCollections.observableArrayList();
 
     /**
      * Returns the data as an observable list of Colleghis.
      * @return
      */
-    public ObservableList<Amici> getColleghiData() {
+    public ObservableList<Utenti> getColleghiData() {
         return colleghiData;
     }
 
   @Override
   public void start(Stage primaryStage) {
     this.primaryStage = primaryStage;
-    this.primaryStage.setTitle("Amici app");
+    this.primaryStage.setTitle("Task Manager Avanzato");
 
     // Set the application icon.
-    primaryStage.getIcons().add(new Image("file:resources/images/address_book_32.png"));
+    primaryStage.getIcons().add(new Image("file:resources/images/App_Icon.png"));
+
 
     initRootLayout();
-    showColleghiOverview();
+    //showColleghiOverview();
+      showUtentiLogin();
 
     primaryStage.show();
 
@@ -66,7 +68,7 @@ public class MainApp extends Application {
 
     /**
      * Initializes the root layout and tries to load the last opened
-     * Amici file.
+     * Utenti file.
      */
     public void initRootLayout() {
         try {
@@ -100,12 +102,12 @@ public class MainApp extends Application {
      */
     public void handleExit() {
         Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setTitle("Are you sure?");
-        alert.setHeaderText("Exit");
-        alert.setContentText("Exit from application.");
+        alert.setTitle("Chiusura applicazione");
+        alert.setHeaderText("EXIT");
+        alert.setContentText("Sei sicuro di voler uscire?");
 
-        ButtonType buttonTypeOne = new ButtonType("Yes");
-        ButtonType buttonTypeCancel = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
+        ButtonType buttonTypeOne = new ButtonType("Conferma");
+        ButtonType buttonTypeCancel = new ButtonType("Annulla", ButtonBar.ButtonData.CANCEL_CLOSE);
 
         alert.getButtonTypes().setAll(buttonTypeOne, buttonTypeCancel);
 
@@ -119,15 +121,15 @@ public class MainApp extends Application {
 
 
     /**
-     * Shows the Amici overview inside the root layout.
+     * Shows the Utenti overview inside the root layout.
      */
     public void showColleghiOverview() {
         try {
-            // Load Amici overview.
+            // Load Utenti overview.
             FXMLLoader loader = new FXMLLoader();
             loader.setLocation(MainApp.class.getResource("view/ColleghiOverview.fxml"));
 
-            // Set Amici overview into the center of root layout.
+            // Set Utenti overview into the center of root layout.
             rootLayout.setCenter(loader.load());
 
             // Give the controller access to the main app.
@@ -138,6 +140,26 @@ public class MainApp extends Application {
             e.printStackTrace();
         }
     }
+
+    //voglio un metodo che mostri la finestra di login
+    public void showUtentiLogin(){
+        try {
+            FXMLLoader loader = new FXMLLoader();
+
+            loader.setLocation(MainApp.class.getResource("view/UtentiLogin.fxml"));
+            // Set Utenti overview into the center of root layout.
+            rootLayout.setCenter(loader.load());
+
+            // Give the controller access to the main app.
+            UtentiLoginController controller = loader.getController();
+            controller.setMainApp(this);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
 
     public boolean showSettingsEditDialog(DAOMySQLSettings daoMySQLSettings){
         try {
@@ -181,7 +203,7 @@ public class MainApp extends Application {
      * @param colleghi the colleghi object to be edited
      * @return true if the user clicked OK, false otherwise.
      */
-    public boolean showColleghiEditDialog(Amici colleghi, boolean verifyLen) {
+    public boolean showColleghiEditDialog(Utenti colleghi, boolean verifyLen) {
         try {
             // Load the fxml file and create a new stage for the popup dialog.
             FXMLLoader loader = new FXMLLoader();
@@ -190,7 +212,7 @@ public class MainApp extends Application {
 
             // Create the dialog Stage.
             Stage dialogStage = new Stage();
-            dialogStage.setTitle("Edit Amici");
+            dialogStage.setTitle("Modifica utente.");
             dialogStage.initModality(Modality.WINDOW_MODAL);
             dialogStage.initOwner(primaryStage);
             Scene scene = new Scene(page);
@@ -244,7 +266,7 @@ public class MainApp extends Application {
     }
 
     /**
-     * Returns the Amici file preference, i.e. the file that was last opened.
+     * Returns the Utenti file preference, i.e. the file that was last opened.
      * The preference is read from the OS specific registry. If no such
      * preference can be found, null is returned.
      *
@@ -303,3 +325,5 @@ class MyEventHandler implements EventHandler<WindowEvent> {
         //handleExit();
     }
 }
+
+

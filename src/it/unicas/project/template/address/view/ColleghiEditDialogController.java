@@ -1,6 +1,6 @@
 package it.unicas.project.template.address.view;
 
-import it.unicas.project.template.address.model.Amici;
+import it.unicas.project.template.address.model.Utenti;
 import it.unicas.project.template.address.util.DateUtil;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
@@ -19,16 +19,16 @@ public class ColleghiEditDialogController {
     private TextField nomeField;
     @FXML
     private TextField cognomeField;
-    @FXML
-    private TextField telefonoField;
+    //@FXML
+    //private TextField telefonoField;
     @FXML
     private TextField emailField;
     @FXML
-    private TextField compleannoField;
+   // private TextField compleannoField;
 
 
     private Stage dialogStage;
-    private Amici colleghi;
+    private Utenti colleghi;
     private boolean okClicked = false;
     private boolean verifyLen = true;
 
@@ -58,15 +58,15 @@ public class ColleghiEditDialogController {
      *
      * @param colleghi
      */
-    public void setColleghi(Amici colleghi) {
+    public void setColleghi(Utenti colleghi) {
         this.colleghi = colleghi;
 
         nomeField.setText(colleghi.getNome());
         cognomeField.setText(colleghi.getCognome());
-        telefonoField.setText(colleghi.getTelefono());
+        //telefonoField.setText(colleghi.getTelefono());
         emailField.setText(colleghi.getEmail());
-        compleannoField.setText(colleghi.getCompleanno());
-        compleannoField.setPromptText("dd-mm-yyyy");
+        // compleannoField.setText(colleghi.getCompleanno());
+        // compleannoField.setPromptText("dd-mm-yyyy");
     }
 
     /**
@@ -86,11 +86,11 @@ public class ColleghiEditDialogController {
         if (isInputValid(verifyLen)) {
             colleghi.setNome(nomeField.getText());
             colleghi.setCognome(cognomeField.getText());
-            colleghi.setTelefono(telefonoField.getText());
+            //colleghi.setTelefono(telefonoField.getText());
             colleghi.setEmail(emailField.getText());
-            if (compleannoField.getText() != null){
+            /*if (compleannoField.getText() != null){
                 colleghi.setCompleanno(compleannoField.getText());
-            }
+            }*/
             okClicked = true;
             dialogStage.close();
         }
@@ -113,19 +113,19 @@ public class ColleghiEditDialogController {
         String errorMessage = "";
 
         if (nomeField.getText() == null || (verifyLen && nomeField.getText().length() == 0)) {
-            errorMessage += "No valid first name!\n";
+            errorMessage += "Nome non valido!\n";
         }
         if (cognomeField.getText() == null || (verifyLen && cognomeField.getText().length() == 0)) {
-            errorMessage += "No valid last name!\n";
+            errorMessage += "Cognome non valido!\n";
         }
-        if (telefonoField.getText() == null || (verifyLen && telefonoField.getText().length() == 0)) {
+        /*if (telefonoField.getText() == null || (verifyLen && telefonoField.getText().length() == 0)) {
             errorMessage += "No valid telephone number!\n";
-        }
+        }*/
 
         if (emailField.getText() == null || (verifyLen && emailField.getText().length() == 0)) {
-            errorMessage += "No valid email!\n";
+            errorMessage += "Email non valida!\n";
         }
-        if (compleannoField.getText() == null && verifyLen){
+        /*if (compleannoField.getText() == null && verifyLen){
             errorMessage += "No valid birthday!\n";
         }
 
@@ -136,7 +136,7 @@ public class ColleghiEditDialogController {
             if (!DateUtil.validDate(compleannoField.getText())) {
                 errorMessage += "No valid birthday. Use the format dd-mm-yyyy!\n";
             }
-        }
+        }*/
 
         if (errorMessage.length() == 0) {
             return true;
@@ -144,8 +144,8 @@ public class ColleghiEditDialogController {
             // Show the error message.
             Alert alert = new Alert(AlertType.ERROR);
             alert.initOwner(dialogStage);
-            alert.setTitle("Invalid Fields");
-            alert.setHeaderText("Please correct invalid fields");
+            alert.setTitle("Campi non validi");
+            alert.setHeaderText("Per favore, correggi i campi non validi.");
             alert.setContentText(errorMessage);
 
             alert.showAndWait();

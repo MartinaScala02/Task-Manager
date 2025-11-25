@@ -1,32 +1,33 @@
 .background {
-    -fx-background-color: #1d1d1d;
+    -fx-background-color: #8b5fbf;
+
 }
 
 .label {
-    -fx-font-size: 11pt;
-    -fx-font-family: "Segoe UI Semibold";
-    -fx-text-fill: white;
-    -fx-opacity: 0.6;
+    -fx-font-size: 13pt;
+    -fx-font-family: "Segoe UI Light";
+    -fx-font-weight: bold;
+    -fx-text-fill: #ffffff;
+    /*-fx-opacity: 0.6;*/
 }
 
 .label-bright {
     -fx-font-size: 11pt;
-    -fx-font-family: "Segoe UI Semibold";
-    -fx-text-fill: white;
-    -fx-opacity: 1;
-}
-
-.label-header {
-    -fx-font-size: 32pt;
     -fx-font-family: "Segoe UI Light";
     -fx-text-fill: white;
     -fx-opacity: 1;
 }
 
+.label-header {
+    -fx-font-size: 40pt;
+    -fx-font-family: "Segoe UI Light";
+    -fx-text-fill: #42204d;
+}
+
 .table-view {
     -fx-base: #1d1d1d;
     -fx-control-inner-background: #1d1d1d;
-    -fx-background-color: #1d1d1d;
+    -fx-background-color: #3f2b57;
     -fx-table-cell-border-color: transparent;
     -fx-table-header-border-color: transparent;
     -fx-padding: 5;
@@ -70,11 +71,11 @@
 }
 
 .menu-bar {
-    -fx-background-color: derive(#1d1d1d,20%);
+    -fx-background-color: derive(#3f2b57,20%);
 }
 
 .context-menu {
-    -fx-background-color: derive(#1d1d1d,50%);
+    -fx-background-color: derive(#643a71,50%);
 }
 
 .menu-bar .label {
@@ -85,13 +86,27 @@
 }
 
 .menu .left-container {
-    -fx-background-color: black;
+    -fx-background-color: #643a71;
 }
 
-.text-field {
-    -fx-font-size: 12pt;
-    -fx-font-family: "Segoe UI Semibold";
+.text-field, .password-field {
+    -fx-background-color: #ffffff;
+    -fx-background-radius: 10; /* angoli arrotondati */
+    -fx-border-radius: 10;
+    -fx-border-color: #cccccc;
+    -fx-border-width: 1.5px;
+    -fx-padding: 5 10;
+    -fx-text-fill: black;
+    -fx-pref-height: 30px;
+    -fx-max-width: 220px;
 }
+
+.text-field:focused, .password-field:focused {
+    -fx-background-color: #e3cbd0;
+}
+
+
+
 
 /*
  * Metro style Push Button
@@ -103,7 +118,7 @@
     -fx-border-color: #e2e2e2;
     -fx-border-width: 2;
     -fx-background-radius: 0;
-    -fx-background-color: #1d1d1d;
+    -fx-background-color: #6d4b96;
     -fx-font-family: "Segoe UI", Helvetica, Arial, sans-serif;
     -fx-font-size: 11pt;
     -fx-text-fill: #d8d8d8;
@@ -111,8 +126,8 @@
 }
 
 .button:hover {
-    -fx-background-color: #3a3a3a;
-}
+    -fx-background-color: #a372de;
+}  /*serve per modificare il colore al passaggio del mouse*/
 
 .button:pressed, .button:default:hover:pressed {
     -fx-background-color: white;

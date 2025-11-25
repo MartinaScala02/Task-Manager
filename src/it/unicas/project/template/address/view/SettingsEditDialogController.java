@@ -114,14 +114,14 @@ public class SettingsEditDialogController {
             errorMessage += "No valid hostname!\n";
         }
         if (usernameField.getText() == null || usernameField.getText().length() == 0) {
-            errorMessage += "No valid username!\n";
+            errorMessage += "Username non valido!\n";
         }
 
         if (passwordField.getText() == null || passwordField.getText().length() == 0) {
-            errorMessage += "No valid password!\n";
+            errorMessage += "Password non valida!\n";
         }
         if (schemaField.getText() == null || schemaField.getText().length() == 0){
-            errorMessage += "No valid schema!\n";
+            errorMessage += "Schema non valido!\n";
         }
 
 
@@ -132,8 +132,8 @@ public class SettingsEditDialogController {
             // Show the error message.
             Alert alert = new Alert(AlertType.ERROR);
             alert.initOwner(dialogStage);
-            alert.setTitle("Invalid Fields");
-            alert.setHeaderText("Please correct invalid fields");
+            alert.setTitle("ERRORE - Campi non validi");
+            alert.setHeaderText("Per favore, correggi i campi non validi.");
             alert.setContentText(errorMessage);
 
             alert.showAndWait();

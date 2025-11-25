@@ -15,19 +15,18 @@
                 <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
                 <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
                 <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
-                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
             </rowConstraints>
             <children>
                 <Label text="Nome" />
                 <Label text="Cognome" GridPane.rowIndex="1" />
-                <Label text="Telefono" GridPane.rowIndex="2" />
-                <Label text="email" GridPane.rowIndex="3" />
-                <Label text="Compleanno" GridPane.rowIndex="4" />
+               <!-- <Label text="Telefono" GridPane.rowIndex="2" /> -->
+                <Label text="email" GridPane.rowIndex="2" />
+               <!-- <Label text="Compleanno" GridPane.rowIndex="3" /> -->
                 <TextField fx:id="nomeField" GridPane.columnIndex="1" />
                 <TextField fx:id="cognomeField" GridPane.columnIndex="1" GridPane.rowIndex="1" />
-                <TextField fx:id="telefonoField" GridPane.columnIndex="1" GridPane.rowIndex="2" />
-                <TextField fx:id="emailField" GridPane.columnIndex="1" GridPane.rowIndex="3" />
-                <TextField fx:id="compleannoField" GridPane.columnIndex="1" GridPane.rowIndex="4" />
+              <!--  <TextField fx:id="telefonoField" GridPane.columnIndex="1" GridPane.rowIndex="2" /> -->
+                <TextField fx:id="emailField" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                <!-- <TextField fx:id="compleannoField" GridPane.columnIndex="1" GridPane.rowIndex="3" /> -->
             </children>
         </GridPane>
         <ButtonBar layoutX="176.0" layoutY="233.0" AnchorPane.bottomAnchor="10.0" AnchorPane.rightAnchor="10.0">

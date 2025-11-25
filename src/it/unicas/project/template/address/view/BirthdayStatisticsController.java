@@ -8,7 +8,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
-import it.unicas.project.template.address.model.Amici;
+import it.unicas.project.template.address.model.Utenti;
 import it.unicas.project.template.address.util.DateUtil;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -52,13 +52,13 @@ public class BirthdayStatisticsController {
      *
      * @param colleghis
      */
-    public void setColleghiData(List<Amici> colleghis) {
+    public void setColleghiData(List<Utenti> colleghis) {
         // Count the number of people having their birthday in a specific month.
         int[] monthCounter = new int[12];
-        for (Amici p : colleghis) {
-            LocalDate localDate = DateUtil.parse(p.getCompleanno());
-            int month = localDate.getMonthValue() - 1;
-            monthCounter[month]++;
+        for (Utenti p : colleghis) {
+            //LocalDate localDate = DateUtil.parse(p.getCompleanno());
+            //int month = localDate.getMonthValue() - 1;
+            //monthCounter[month]++;
         }
 
         XYChart.Series<String, Integer> series = new XYChart.Series<>();
