@@ -17,11 +17,12 @@ public class Utenti {
 
     private StringProperty nome;
     private StringProperty cognome;
+    private StringProperty username;
     //private StringProperty telefono;
     private StringProperty email;
     //private StringProperty compleanno;
-    private StringProperty password;
-    private IntegerProperty idUtenti;  //wrapper
+    private StringProperty psw;
+    private IntegerProperty idUtente;  //wrapper
 
     //private static String attributoStaticoDiEsempio;
 
@@ -32,18 +33,18 @@ public class Utenti {
         this(null, null);
     }
 
-    public Utenti(String nome, String cognome,/* String telefono,*/ String email, /*String compleanno,*/ Integer idColleghi) {
+    public Utenti(String nome, String cognome, String email, String psw, Integer idColleghi) {
         this.nome = new SimpleStringProperty(nome);
         this.cognome = new SimpleStringProperty(cognome);
-       // this.telefono = new SimpleStringProperty(telefono);
+        // this.telefono = new SimpleStringProperty(telefono);
         this.email = new SimpleStringProperty(email);
         //this.compleanno = new SimpleStringProperty(compleanno);
         if (idColleghi != null){
-            this.idUtenti = new SimpleIntegerProperty(idColleghi);
+            this.idUtente = new SimpleIntegerProperty(idColleghi);
         } else {
-            this.idUtenti = null;
+            this.idUtente = null;
         }
-        this.password = new SimpleStringProperty("");
+        this.psw = new SimpleStringProperty("");
     }
 
     /**
@@ -58,23 +59,23 @@ public class Utenti {
         // Some initial dummy data, just for convenient testing.
         // this.telefono = new SimpleStringProperty("telefono");
         this.email = new SimpleStringProperty("email@email.com");
-        this.password = new SimpleStringProperty("password");
+        this.psw = new SimpleStringProperty("psw");
         //this.compleanno = new SimpleStringProperty("24-10-2017");
-        this.idUtenti = null;
+        this.idUtente = null;
     }
 
-    public Integer getIdUtenti(){
-        if (idUtenti == null){
-            idUtenti = new SimpleIntegerProperty(-1);
+    public Integer getIdUtente(){
+        if (idUtente == null){
+            idUtente = new SimpleIntegerProperty(-1);
         }
-        return idUtenti.get();
+        return idUtente.get();
     }
 
-    public void setIdUtenti(Integer idUtenti) {
-        if (this.idUtenti == null){
-            this.idUtenti = new SimpleIntegerProperty();
+    public void setIdUtente(Integer idUtente) {
+        if (this.idUtente == null){
+            this.idUtente = new SimpleIntegerProperty();
         }
-        this.idUtenti.set(idUtenti);
+        this.idUtente.set(idUtente);
     }
 
     public String getNome() {
@@ -125,12 +126,12 @@ public class Utenti {
         return email;
     }
 
-    public String getPassword() {
-        return password.get();
+    public String getPsw() {
+        return psw.get();
     }
 
-    public void setPassword(String password) {
-        this.password.set(password);
+    public void setPsw(String psw) {
+        this.psw.set(psw);
     }
     /*public String getCompleanno() {
         return compleanno.getValue();
@@ -146,7 +147,7 @@ public class Utenti {
 
 
     public String toString(){
-        return nome.getValue() + ", " + cognome.getValue() + ", " /*+ telefono.getValue() + ", " */ + email.getValue() + ", " + /*compleanno.getValue() + */", (" + idUtenti.getValue() + ")";
+        return nome.getValue() + ", " + cognome.getValue() + ", " /*+ telefono.getValue() + ", " */ + email.getValue() + ", " + /*compleanno.getValue() + */", (" + idUtente.getValue() + ")";
     }
 
 
@@ -172,7 +173,7 @@ public class Utenti {
         );*/
 
 
-       // collega.setCompleanno("30-10-1971");
+        // collega.setCompleanno("30-10-1971");
 
 
 
@@ -182,7 +183,7 @@ public class Utenti {
         // Now add observability by wrapping it with ObservableList.
         ObservableList<Utenti> observableList = FXCollections.observableList(list);
         observableList.addListener(
-          (ListChangeListener) change -> System.out.println("Detected a change! ")
+                (ListChangeListener) change -> System.out.println("Detected a change! ")
         );
 
         Utenti c1 = new Utenti();
@@ -211,4 +212,3 @@ public class Utenti {
 
 
 }
-

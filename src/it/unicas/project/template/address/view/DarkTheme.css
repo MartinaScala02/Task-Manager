@@ -20,8 +20,9 @@
 
 .label-header {
     -fx-font-size: 40pt;
-    -fx-font-family: "Segoe UI Light";
+    -fx-font-family: "Book Antiqua";
     -fx-text-fill: #42204d;
+
 }
 
 .table-view {
@@ -89,7 +90,7 @@
     -fx-background-color: #643a71;
 }
 
-.text-field, .password-field {
+.text-field, .psw-field {
     -fx-background-color: #ffffff;
     -fx-background-radius: 10;
     -fx-border-radius: 10;
@@ -101,7 +102,7 @@
     -fx-max-width: 220px;
 }
 
-.text-field:focused, .password-field:focused {
+.text-field:focused, .psw-field:focused {
     -fx-background-color: #e3cbd0;
 }
 

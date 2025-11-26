@@ -7,22 +7,22 @@ import java.sql.Statement;
 public class DAOMySQLSettings {
 
     public final static String DRIVERNAME = "com.mysql.cj.jdbc.Driver";
-    public final static String HOST = "localhost";
-    public final static String USERNAME = "Utenti";
-    public final static String PWD = "Martina2002";
-    public final static String SCHEMA = "Utenti";
+    public final static String HOST = "mysql-3aab6e3-federica-118f.e.aivencloud.com:19236";
+    public final static String USERNAME = "avnadmin";
+    public final static String PWD = "AVNS_KOdpXZdcc-vhd1-Le76";
+    public final static String SCHEMA = "Task_Manager";
     public final static String PARAMETERS = "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
 
 
-    //String url = "jdbc:mysql://localhost:3306/Utenti?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
+    //String url = "jdbc:mysql://localhost:3306/amici?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
 
 
 
     //private String driverName = "com.mysql.cj.jdbc.Driver";
-    private String host = "localhost";
-    private String userName = "Utenti";
-    private String pwd = "Martina2002";
-    private String schema = "Utenti";
+    private String host = "mysql-3aab6e3-federica-118f.e.aivencloud.com:19236";
+    private String userName = "avnadmin";
+    private String pwd = "AVNS_KOdpXZdcc-vhd1-Le76";
+    private String schema = "Task_Manager";
 
 
     public String getHost() {

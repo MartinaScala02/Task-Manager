@@ -5,7 +5,9 @@ import it.unicas.project.template.address.util.DateUtil;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
 import javafx.stage.Stage;
 
 /**
@@ -24,8 +26,11 @@ public class ColleghiEditDialogController {
     @FXML
     private TextField emailField;
     @FXML
-   // private TextField compleannoField;
-
+    private PasswordField PasswordField;
+    @FXML
+    private TextField pswVisibleField;
+    @FXML
+    private ToggleButton showpswBtn;
 
     private Stage dialogStage;
     private Utenti colleghi;
@@ -38,6 +43,32 @@ public class ColleghiEditDialogController {
      */
     @FXML
     private void initialize() {
+        // Sincronizza i due campi (testo condiviso)
+        pswVisibleField.textProperty().bindBidirectional(PasswordField.textProperty());
+
+        // All'avvio mostra solo il PasswordField
+        pswVisibleField.setVisible(false);
+        pswVisibleField.setManaged(false);
+
+        // Toggle: quando selezionato mostra il TextField, altrimenti mostra il PasswordField
+        showpswBtn.selectedProperty().addListener((obs, oldV, newV) -> {
+            if (newV) {
+                pswVisibleField.setVisible(true);
+                pswVisibleField.setManaged(true);
+                PasswordField.setVisible(false);
+                PasswordField.setManaged(false);
+                pswVisibleField.requestFocus();
+                pswVisibleField.positionCaret(pswVisibleField.getText().length());
+            } else {
+                PasswordField.setVisible(true);
+                PasswordField.setManaged(true);
+                pswVisibleField.setVisible(false);
+                pswVisibleField.setManaged(false);
+                PasswordField.requestFocus();
+                PasswordField.positionCaret(PasswordField.getText().length());
+            }
+        });
+
     }
 
     /**
@@ -65,6 +96,7 @@ public class ColleghiEditDialogController {
         cognomeField.setText(colleghi.getCognome());
         //telefonoField.setText(colleghi.getTelefono());
         emailField.setText(colleghi.getEmail());
+        PasswordField.setText(colleghi.getPsw());
         // compleannoField.setText(colleghi.getCompleanno());
         // compleannoField.setPromptText("dd-mm-yyyy");
     }
@@ -91,6 +123,7 @@ public class ColleghiEditDialogController {
             /*if (compleannoField.getText() != null){
                 colleghi.setCompleanno(compleannoField.getText());
             }*/
+            colleghi.setPsw(PasswordField.getText());
             okClicked = true;
             dialogStage.close();
         }
@@ -137,6 +170,9 @@ public class ColleghiEditDialogController {
                 errorMessage += "No valid birthday. Use the format dd-mm-yyyy!\n";
             }
         }*/
+        if (PasswordField.getText() == null || (verifyLen && PasswordField.getText().length() == 0)) {
+            errorMessage += "psw non valida!\n";
+        }
 
         if (errorMessage.length() == 0) {
             return true;
@@ -153,4 +189,5 @@ public class ColleghiEditDialogController {
             return false;
         }
     }
+
 }

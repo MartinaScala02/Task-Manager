@@ -22,7 +22,7 @@ public class SettingsEditDialogController {
     @FXML
     private TextField usernameField;
     @FXML
-    private TextField passwordField;
+    private TextField PasswordField;
     @FXML
     private TextField schemaField;
 
@@ -40,7 +40,7 @@ public class SettingsEditDialogController {
         driverNameField.setText(DAOMySQLSettings.DRIVERNAME);
         hostField.setText("");
         usernameField.setText("");
-        passwordField.setText("");
+        PasswordField.setText("");
         schemaField.setText("");
     }
 
@@ -65,7 +65,7 @@ public class SettingsEditDialogController {
         this.settings = settings;
         hostField.setText(settings.getHost());
         usernameField.setText(settings.getUserName());
-        passwordField.setText(settings.getPwd());
+        PasswordField.setText(settings.getPwd());
         schemaField.setText(settings.getSchema());
     }
 
@@ -86,7 +86,7 @@ public class SettingsEditDialogController {
         if (isInputValid()) {
             settings.setHost(hostField.getText());
             settings.setUserName(usernameField.getText());
-            settings.setPwd(passwordField.getText());
+            settings.setPwd(PasswordField.getText());
             settings.setSchema(schemaField.getText());
 
             okClicked = true;
@@ -117,8 +117,8 @@ public class SettingsEditDialogController {
             errorMessage += "Username non valido!\n";
         }
 
-        if (passwordField.getText() == null || passwordField.getText().length() == 0) {
-            errorMessage += "Password non valida!\n";
+        if (PasswordField.getText() == null || PasswordField.getText().length() == 0) {
+            errorMessage += "psw non valida!\n";
         }
         if (schemaField.getText() == null || schemaField.getText().length() == 0){
             errorMessage += "Schema non valido!\n";

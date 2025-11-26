@@ -32,14 +32,14 @@ public class ColleghiDAOMySQLImpl implements DAO<Utenti> {
         ColleghiDAOMySQLImpl c = new ColleghiDAOMySQLImpl();
 
 
-        c.insert(new Utenti("Mario", "Rossi", "molinara@uni.it",  null));
-        c.insert(new Utenti("Carlo", "Ciampi", "ciampi@uni.it",  null));
-        c.insert(new Utenti("Ornella", "Vaniglia", "vaniglia@uni.it", null));
-        c.insert(new Utenti("Cornelia", "Crudelia", "crudelia@uni.it", null));
-        c.insert(new Utenti("Franco", "Bertolucci", "bertolucci@uni.it",null));
-        c.insert(new Utenti("Carmine", "Labagnara", "lagbagnara@uni.it",  null));
-        c.insert(new Utenti("Mauro", "Cresta", "cresta@uni.it",  null));
-        c.insert(new Utenti("Andrea", "Coluccio", "coluccio@uni.it", null));
+        c.insert(new Utenti("Mario", "Rossi", "molinara@uni.it", "0824981", null));
+        c.insert(new Utenti("Carlo", "Ciampi", "ciampi@uni.it", "0824981", null));
+        c.insert(new Utenti("Ornella", "Vaniglia", "vaniglia@uni.it", "0824981", null));
+        c.insert(new Utenti("Cornelia", "Crudelia", "crudelia@uni.it", "0824981",null));
+        c.insert(new Utenti("Franco", "Bertolucci", "bertolucci@uni.it", "0824981", null));
+        c.insert(new Utenti("Carmine", "Labagnara", "lagbagnara@uni.it", "0824981", null));
+        c.insert(new Utenti("Mauro", "Cresta", "cresta@uni.it", "0824981", null));
+        c.insert(new Utenti("Andrea", "Coluccio", "coluccio@uni.it", "0824981", null));
 
 
         List<Utenti> list = c.select(null);
@@ -53,7 +53,7 @@ public class ColleghiDAOMySQLImpl implements DAO<Utenti> {
         toDelete.setCognome("");
         toDelete.setEmail("");
         //toDelete.setTelefono("");
-        toDelete.setIdUtenti(7);
+        toDelete.setIdUtente(7);
 
         c.delete(toDelete);
 
@@ -69,7 +69,7 @@ public class ColleghiDAOMySQLImpl implements DAO<Utenti> {
     public List<Utenti> select(Utenti a) throws DAOException {
 
         if (a == null){
-            a = new Utenti("", "", "", null); // Cerca tutti gli elementi
+            a = new Utenti("", "", "", "", null); // Cerca tutti gli elementi
         }
 
         ArrayList<Utenti> lista = new ArrayList<>();
@@ -104,7 +104,8 @@ public class ColleghiDAOMySQLImpl implements DAO<Utenti> {
                        /* rs.getString("telefono"),*/
                         rs.getString("email"),
                         /*rs.getString("compleanno"),*/
-                        rs.getInt("idUtenti")));
+                        rs.getString("psw"),
+                        rs.getInt("idUtente")));
             }
             DAOMySQLSettings.closeStatement(st);
 
@@ -116,10 +117,10 @@ public class ColleghiDAOMySQLImpl implements DAO<Utenti> {
 
     @Override
     public void delete(Utenti a) throws DAOException {
-        if (a == null || a.getIdUtenti() == null){
-            throw new DAOException("In delete: idUtenti cannot be null");
+        if (a == null || a.getIdUtente() == null){
+            throw new DAOException("In delete: idUtente cannot be null");
         }
-        String query = "DELETE FROM Utenti WHERE idUtenti='" + a.getIdUtenti() + "';";
+        String query = "DELETE FROM Utenti WHERE idUtente='" + a.getIdUtente() + "';";
 
         try{
           logger.info("SQL: " + query);
@@ -139,9 +140,9 @@ public class ColleghiDAOMySQLImpl implements DAO<Utenti> {
         verifyObject(a);
 
 
-        String query = "INSERT INTO Utenti (nome, cognome, telefono, email, compleanno, idUtenti) VALUES  ('" +
+        String query = "INSERT INTO Utenti (nome, cognome, email, psw, idUtente) VALUES  ('" +
                 a.getNome() + "', '" + a.getCognome() + "', '" +
-                /*a.getTelefono() + "', '" + a.getEmail() + "', '" +*/
+                /*a.getTelefono() + "', '" +*/ a.getEmail() + "', '" + a.getPsw() +
                 /*a.getCompleanno() + */"', NULL)";
         try {
           logger.info("SQL: " + query);
@@ -158,7 +159,7 @@ public class ColleghiDAOMySQLImpl implements DAO<Utenti> {
         verifyObject(a);
 
         String query = "UPDATE Utenti SET nome = '" + a.getNome() + "', cognome = '" + a.getCognome() + /*"',  telefono = '" + a.getTelefono() + */ "', email = '" + a.getEmail() + /*"', compleanno = '" + a.getCompleanno() +*/ "'";
-        query = query + " WHERE idUtenti = " + a.getIdUtenti() + ";";
+        query = query + " WHERE idUtente = " + a.getIdUtente() + ";";
         logger.info("SQL: " + query);
 
         executeUpdate(query);

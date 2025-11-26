@@ -16,13 +16,13 @@ public class UtentiLoginController {
     private TextField emailField;
 
     @FXML
-    private PasswordField passwordField;
+    private PasswordField PasswordField;
 
     @FXML
-    private TextField passwordVisibleField;
+    private TextField pswVisibleField;
 
     @FXML
-    private ToggleButton showPasswordBtn;
+    private ToggleButton showpswBtn;
 
     private MainApp mainApp;
 
@@ -39,40 +39,40 @@ public class UtentiLoginController {
     @FXML
     private void initialize() {
         // Sincronizza i due campi (testo condiviso)
-        passwordVisibleField.textProperty().bindBidirectional(passwordField.textProperty());
+        pswVisibleField.textProperty().bindBidirectional(PasswordField.textProperty());
 
         // All'avvio mostra solo il PasswordField
-        passwordVisibleField.setVisible(false);
-        passwordVisibleField.setManaged(false);
+        pswVisibleField.setVisible(false);
+        pswVisibleField.setManaged(false);
 
         // Toggle: quando selezionato mostra il TextField, altrimenti mostra il PasswordField
-        showPasswordBtn.selectedProperty().addListener((obs, oldV, newV) -> {
+        showpswBtn.selectedProperty().addListener((obs, oldV, newV) -> {
             if (newV) {
-                passwordVisibleField.setVisible(true);
-                passwordVisibleField.setManaged(true);
-                passwordField.setVisible(false);
-                passwordField.setManaged(false);
-                passwordVisibleField.requestFocus();
-                passwordVisibleField.positionCaret(passwordVisibleField.getText().length());
+                pswVisibleField.setVisible(true);
+                pswVisibleField.setManaged(true);
+                PasswordField.setVisible(false);
+                PasswordField.setManaged(false);
+                pswVisibleField.requestFocus();
+                pswVisibleField.positionCaret(pswVisibleField.getText().length());
             } else {
-                passwordField.setVisible(true);
-                passwordField.setManaged(true);
-                passwordVisibleField.setVisible(false);
-                passwordVisibleField.setManaged(false);
-                passwordField.requestFocus();
-                passwordField.positionCaret(passwordField.getText().length());
+                PasswordField.setVisible(true);
+                PasswordField.setManaged(true);
+                pswVisibleField.setVisible(false);
+                pswVisibleField.setManaged(false);
+                PasswordField.requestFocus();
+                PasswordField.positionCaret(PasswordField.getText().length());
             }
         });
     }
 
 
-        // Metodo per gestire il login: verifica email e password confrontandoli con i dati in memoria (mainApp.getColleghiData())
+        // Metodo per gestire il login: verifica email e psw confrontandoli con i dati in memoria (mainApp.getColleghiData())
     @FXML
     private void handleLogin() {
         String email = emailField.getText() == null ? "" : emailField.getText().trim();
-        String password = passwordField.getText() == null ? "" : passwordField.getText();
+        String psw = PasswordField.getText() == null ? "" : PasswordField.getText();
 
-        if (email.isEmpty() || password.isEmpty()) {
+        if (email.isEmpty() || psw.isEmpty()) {
             Alert alert = new Alert(Alert.AlertType.WARNING);
             alert.initOwner(mainApp.getPrimaryStage());
             alert.setTitle("Input mancante");
@@ -85,7 +85,7 @@ public class UtentiLoginController {
         boolean authenticated = false;
         for (Utenti u : mainApp.getColleghiData()) {
             if (u.getEmail() != null && u.getEmail().equalsIgnoreCase(email)
-                    && u.getPassword() != null && u.getPassword().equals(password)) {
+                    && u.getPsw() != null && u.getPsw().equals(psw)) {
                 authenticated = true;
 
                 Alert success = new Alert(Alert.AlertType.INFORMATION);
@@ -100,7 +100,7 @@ public class UtentiLoginController {
 
                 // Pulisco i campi
                 emailField.clear();
-                passwordField.clear();
+                PasswordField.clear();
                 break;
             }
         }

@@ -175,7 +175,7 @@ public class ColleghiOverviewController {
      */
     @FXML
     private void handleSearchColleghi() {
-        Utenti tempColleghi = new Utenti("","","", null);
+        Utenti tempColleghi = new Utenti("","","", "", null);
         boolean okClicked = mainApp.showColleghiEditDialog(tempColleghi,false);
         if (okClicked) {
             //mainApp.getColleghiData().add(tempColleghi);
