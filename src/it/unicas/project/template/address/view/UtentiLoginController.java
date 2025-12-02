@@ -9,7 +9,6 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.PasswordField; //gestisce automaticamente la maschera
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
-import javafx.stage.Stage;
 
 import java.util.List;
 
@@ -100,6 +99,7 @@ public class UtentiLoginController {
                 Utenti utenteLoggato = risultato.get(0);
                 MainApp.setCurrentUser(utenteLoggato); // Salvo l'utente nella sessione
 
+
                 // Messaggio di Benvenuto
                 Alert alert = new Alert(Alert.AlertType.INFORMATION);
                 alert.setTitle("Successo");
@@ -107,11 +107,13 @@ public class UtentiLoginController {
                 alert.setContentText("Benvenuto " + utenteLoggato.getNome() + "!");
                 alert.showAndWait();
 
-                // === MODIFICA FONDAMENTALE ===
-                // Invece di dialogStage.close(), usiamo questo codice che funziona sempre:
-                Stage stage = (Stage) emailField.getScene().getWindow();
-                stage.close();
-                // ==============================
+//                // === MODIFICA FONDAMENTALE ===
+//                // Invece di dialogStage.close(), usiamo questo codice che funziona sempre:
+//                Stage stage = (Stage) emailField.getScene().getWindow();
+//                stage.close();
+//                // ==============================
+
+                mainApp.showMainScreen(); // Apro la schermata principale
 
             } else {
                 // --- LOGIN FALLITO ---
@@ -126,6 +128,7 @@ public class UtentiLoginController {
             e.printStackTrace();
         }
     }
+
 
     @FXML
     private void handleRegister(){

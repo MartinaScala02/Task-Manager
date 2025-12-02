@@ -107,4 +107,5 @@ public class DAOMySQLSettings {
             e.printStackTrace();
         }
     }
+
 }

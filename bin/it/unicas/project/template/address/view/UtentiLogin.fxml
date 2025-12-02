@@ -41,7 +41,7 @@
                             </StackPane>
                         </HBox>
 
-                         <ToggleButton fx:id="showpswBtn" mnemonicParsing="false" text="👁" wrapText="true" GridPane.columnIndex="2" GridPane.rowIndex="1" />
+                         <ToggleButton fx:id="showpswBtn" mnemonicParsing="false" styleClass="toggle-psw" text="👁" wrapText="true" GridPane.columnIndex="2" GridPane.rowIndex="1" />
 
                     </children>
                 </GridPane>

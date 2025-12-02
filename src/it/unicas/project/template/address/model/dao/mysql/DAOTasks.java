@@ -15,7 +15,7 @@ public class DAOTasks implements DAO<Tasks> {
 
     private DAOTasks(){}
 
-    private static DAO dao = null;
+    private static DAOTasks dao = null;
     private static Logger logger = null;
 
     public static DAO getInstance(){

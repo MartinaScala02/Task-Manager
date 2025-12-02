@@ -76,7 +76,6 @@ public class MainApp extends Application {
         // --- CARICAMENTO DATI ALL'AVVIO ---
         // Questo metodo scarica gli utenti dal DB e riempie la lista, così il login li trova
         initData();
-        // ----------------------------------
 
         //showColleghiOverview();
         showUtentiLogin();
@@ -303,6 +302,38 @@ public class MainApp extends Application {
         }
     }
 
+    // In `src/it/unicas/project/template/address/MainApp.java`
+    public void showMainScreen() {
+
+        try {
+            FXMLLoader loader = new FXMLLoader();
+
+            loader.setLocation(MainApp.class.getResource("view/MainScreen.fxml"));
+            // Set Utenti overview into the center of root layout.
+            rootLayout.setCenter(loader.load());
+
+            // Give the controller access to the main app.
+            MainScreenController controller = loader.getController();
+            controller.setMainApp(this);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+//        // se hai già showColleghiOverview(), delega a quello
+//        showColleghiOverview();
+//    }
+//
+//    // opzionale: tenere traccia dell'utente loggato
+//    private it.unicas.project.template.address.model.Utenti currentUser;
+//    public void setCurrentUser(it.unicas.project.template.address.model.Utenti u) {
+//        this.currentUser = u;
+//    }
+//    public it.unicas.project.template.address.model.Utenti getCurrentUser() {
+//        return this.currentUser;
+    }
+
+
+
     /**
      * Returns the Utenti file preference, i.e. the file that was last opened.
      * The preference is read from the OS specific registry. If no such
@@ -361,4 +392,6 @@ class MyEventHandler implements EventHandler<WindowEvent> {
         windowEvent.consume();
         //handleExit();
     }
+
 }
+
