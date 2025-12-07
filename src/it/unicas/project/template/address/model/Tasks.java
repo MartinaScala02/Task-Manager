@@ -12,8 +12,6 @@ public class Tasks {
     private BooleanProperty completamento;
     private IntegerProperty idTask;
     private IntegerProperty idUtente;
-
-    // CAMBIAMENTO: Ora usiamo un IntegerProperty per l'ID della categoria
     private IntegerProperty idCategoria;
 
     /**
@@ -77,7 +75,6 @@ public class Tasks {
         return idCategoria;
     }
 
-    // --- ALTRI GETTER E SETTER (Standard) ---
 
     public Integer getIdTask() {
         if (idTask == null) return -1;
