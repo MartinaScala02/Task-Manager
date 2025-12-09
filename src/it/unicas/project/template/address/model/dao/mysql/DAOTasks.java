@@ -4,6 +4,11 @@ import it.unicas.project.template.address.model.Tasks;
 import it.unicas.project.template.address.model.dao.DAO;
 import it.unicas.project.template.address.model.dao.DAOException;
 
+// IMPORT PER LE DATE
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -36,18 +41,31 @@ public class DAOTasks implements DAO<Tasks> {
             String sql = "SELECT * FROM Tasks WHERE 1=1 ";
 
             if (t != null) {
+                // 1. FILTRO PAROLA CHIAVE (Cerca nel titolo E nella descrizione)
                 if (t.getTitolo() != null && !t.getTitolo().isEmpty()) {
-                    // Anche qui proteggiamo la ricerca se il titolo ha apostrofi
-                    sql += " AND titolo LIKE '" + t.getTitolo().replace("'", "\\'") + "%'";
+                    String keyword = t.getTitolo().replace("'", "\\'");
+                    sql += " AND (titolo LIKE '%" + keyword + "%' OR descrizione LIKE '%" + keyword + "%')";
                 }
+
+                // 2. FILTRO PRIORITÀ
                 if (t.getPriorita() != null && !t.getPriorita().isEmpty()) {
                     sql += " AND priorità = '" + t.getPriorita() + "'";
                 }
-                if (t.getIdUtente() != null && t.getIdUtente() > 0) {
-                    sql += " AND idUtente = " + t.getIdUtente();
-                }
+
+                // 3. FILTRO CATEGORIA
                 if (t.getIdCategoria() != null && t.getIdCategoria() > 0) {
                     sql += " AND idCategoria = " + t.getIdCategoria();
+                }
+
+                // 4. FILTRO STATO (Completamento)
+                if (t.getCompletamento() != null) {
+                    int stato = t.getCompletamento() ? 1 : 0;
+                    sql += " AND completamento = " + stato;
+                }
+
+                // Filtro Utente (sempre presente per sicurezza)
+                if (t.getIdUtente() != null && t.getIdUtente() > 0) {
+                    sql += " AND idUtente = " + t.getIdUtente();
                 }
             }
 
@@ -90,11 +108,11 @@ public class DAOTasks implements DAO<Tasks> {
 
     @Override
     public void insert(Tasks t) throws DAOException {
+        // 1. VERIFICA RIGOROSA (Blocca le date passate qui)
         verifyObject(t);
 
         Statement st = null;
         try {
-            // Otteniamo lo Statement per eseguire l'operazione
             st = DAOMySQLSettings.getStatement();
 
             int completatoInt = (t.getCompletamento() != null && t.getCompletamento()) ? 1 : 0;
@@ -103,7 +121,7 @@ public class DAOTasks implements DAO<Tasks> {
                 idCatVal = t.getIdCategoria().toString();
             }
 
-            // Sanitizzazione dei campi di testo per prevenire SQL Injection
+            // Sanitizzazione
             String titoloSafe = t.getTitolo().replace("'", "\\'");
             String descrizioneSafe = (t.getDescrizione() != null) ? t.getDescrizione().replace("'", "\\'") : "";
 
@@ -118,19 +136,17 @@ public class DAOTasks implements DAO<Tasks> {
 
             logger.info("SQL Insert: " + query);
 
-            // 1. Esegui l'UPDATE richiedendo le chiavi generate
             st.executeUpdate(query, Statement.RETURN_GENERATED_KEYS);
 
-            // 2. Recupera la chiave generata (idTask)
             ResultSet rs = st.getGeneratedKeys();
             if (rs.next()) {
                 int idGenerato = rs.getInt(1);
-                t.setIdTask(idGenerato); // <--- FIX CRUCIALE: Aggiorna l'oggetto Tasks in memoria
+                t.setIdTask(idGenerato);
             } else {
                 logger.warning("Nessuna chiave generata per la Task inserita.");
             }
 
-            if (rs != null) rs.close(); // Chiude il ResultSet
+            if (rs != null) rs.close();
 
         } catch (SQLException e) {
             throw new DAOException("Errore Database durante l'insert: " + e.getMessage());
@@ -145,13 +161,15 @@ public class DAOTasks implements DAO<Tasks> {
             throw new DAOException("Impossibile aggiornare: idTask non valido.");
         }
 
+        // 2. VERIFICA RIGOROSA ANCHE IN UPDATE
+        verifyObject(t);
+
         int completatoInt = (t.getCompletamento() != null && t.getCompletamento()) ? 1 : 0;
         String idCatVal = "NULL";
         if (t.getIdCategoria() != null && t.getIdCategoria() > 0) {
             idCatVal = t.getIdCategoria().toString();
         }
 
-        // --- CORREZIONE ANCHE QUI ---
         String titoloSafe = t.getTitolo().replace("'", "\\'");
         String descrizioneSafe = (t.getDescrizione() != null) ? t.getDescrizione().replace("'", "\\'") : "";
 
@@ -168,6 +186,7 @@ public class DAOTasks implements DAO<Tasks> {
         executeUpdate(query);
     }
 
+    // --- METODO DI VERIFICA CON VALIDAZIONE DATA ---
     private void verifyObject(Tasks t) throws DAOException {
         if (t == null) throw new DAOException("Task è null");
         if (t.getTitolo() == null || t.getTitolo().isEmpty()) {
@@ -175,6 +194,32 @@ public class DAOTasks implements DAO<Tasks> {
         }
         if (t.getIdUtente() == null || t.getIdUtente() <= 0) {
             throw new DAOException("Task deve essere associato a un utente (idUtente mancante)");
+        }
+
+        // VALIDAZIONE DATA SCADENZA
+        if (t.getScadenza() != null && !t.getScadenza().isEmpty()) {
+            try {
+                LocalDate dataScadenza = null;
+
+                // Tenta il parsing: accetta sia yyyy-MM-dd (Standard SQL) che dd-MM-yyyy (Tua App)
+                if (t.getScadenza().matches("\\d{4}-\\d{2}-\\d{2}")) {
+                    dataScadenza = LocalDate.parse(t.getScadenza());
+                } else {
+                    dataScadenza = LocalDate.parse(t.getScadenza(), DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+                }
+
+                // CONTROLLO CRUCIALE: Se la data è passata -> ECCEZIONE
+                if (dataScadenza.isBefore(LocalDate.now())) {
+                    throw new DAOException("ERRORE BLOCCANTE: Non puoi salvare task nel passato! (" + t.getScadenza() + ")");
+                }
+
+            } catch (DateTimeParseException e) {
+                // Se la data è scritta male, blocchiamo per sicurezza
+                throw new DAOException("Formato data non valido: " + t.getScadenza());
+            }
+        } else {
+            // Se vuoi rendere la data obbligatoria sempre, scommenta questa riga:
+            // throw new DAOException("La data di scadenza è obbligatoria.");
         }
     }
 

@@ -184,4 +184,36 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
             DAOMySQLSettings.closeStatement(st);
         }
     }
+
+    /**
+     * Restituisce la somma totale dei secondi spesi su un task.
+     * Considero solo le sessioni concluse.
+     */
+    public long getSommaDurataPerTask(int idTask) throws DAOException {
+        Statement st = null;
+        long totaleSecondi = 0;
+
+        try {
+            st = DAOMySQLSettings.getStatement();
+            // TIMESTAMPDIFF(SECOND, inizio, fine) calcola i secondi tra le due date
+            // SUM(...) somma tutti i risultati
+            String sql = "SELECT SUM(TIMESTAMPDIFF(SECOND, inizio, fine)) as totale " +
+                    "FROM TimerSessions " +
+                    "WHERE idTask = " + idTask + " AND fine IS NOT NULL";
+
+            ResultSet rs = st.executeQuery(sql);
+
+            if (rs.next()) {
+                totaleSecondi = rs.getLong("totale"); // Se è null (nessuna sessione), restituisce 0
+            }
+            rs.close();
+
+        } catch (SQLException e) {
+            throw new DAOException("Errore nel calcolo durata totale: " + e.getMessage());
+        } finally {
+            DAOMySQLSettings.closeStatement(st);
+        }
+
+        return totaleSecondi;
+    }
 }

@@ -17,38 +17,35 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 import javafx.util.StringConverter;
+import java.time.LocalDate;
+import javafx.scene.control.DateCell;
 
 public class MainScreenController {
 
     // --- FXML Components: TOP BAR ---
     @FXML private VBox sideMenu;
     @FXML private Label usernameLabelHeader;
-    // I toggle button della top bar (Lista, Board, Calendario)
     @FXML private ToggleButton tglList, tglBoard, tglCalendar;
 
-    // --- AREA CENTRALE (VISTE MULTIPLE) ---
-    @FXML private ListView<Tasks> taskListView; // Vista 1: Lista
-
-    @FXML private ScrollPane gridViewContainer; // Vista 2: Griglia
+    // --- AREA CENTRALE ---
+    @FXML private ListView<Tasks> taskListView;
+    @FXML private ScrollPane gridViewContainer;
     @FXML private FlowPane gridFlowPane;
 
-    // Vista 3: Calendario (Aggiornato per supportare Mese/Settimana)
-    @FXML private BorderPane calendarViewContainer; // NOTA: Ora è un BorderPane nel nuovo FXML
-    @FXML private GridPane calendarGrid;            // Griglia Mese
-    @FXML private ScrollPane weekViewContainer;     // Scroll orizzontale per Settimana
-    @FXML private HBox weekViewBox;                 // Contenitore colonne Settimana
-    @FXML private Label calendarMonthLabel;         // Titolo periodo
-
-    // Etichetta informativa vista (Opzionale, se presente nell'FXML)
+    @FXML private BorderPane calendarViewContainer;
+    @FXML private GridPane calendarGrid;
+    @FXML private ScrollPane weekViewContainer;
+    @FXML private HBox weekViewBox;
+    @FXML private Label calendarMonthLabel;
     @FXML private Label viewLabel;
 
-    // --- SIDEBAR FILTRI (ACCORDION) ---
+    // --- SIDEBAR FILTRI ---
     @FXML private VBox categoryMenuContainer;
     @FXML private ComboBox<String> filterPriorityCombo;
     @FXML private DatePicker filterDatePicker;
     @FXML private Button btnFilterTodo, btnFilterDone;
 
-    // --- PANNELLO DETTAGLI (DX) ---
+    // --- PANNELLO DETTAGLI ---
     @FXML private VBox rightDetailPanel;
     @FXML private Label detailTitleLabel, detailCategoryLabel;
     @FXML private DatePicker detailDueDatePicker;
@@ -56,24 +53,23 @@ public class MainScreenController {
     @FXML private ListView<SubTasks> subTaskListView;
     @FXML private TextField newSubTaskField;
 
-    // --- TIMER COMPONENTS ---
+    // --- TIMER ---
     @FXML private Label timerLabel;
     @FXML private Label timerStatusLabel;
     @FXML private Button btnTimerToggle;
     @FXML private Button btnTimerReset;
 
-    // --- FORM CREAZIONE (BASSO) ---
+    // --- FORM CREAZIONE (IL PUNTO CRITICO) ---
     @FXML private TextField newTaskField;
     @FXML private TextArea descriptionArea;
     @FXML private ComboBox<Categorie> categoryComboBox;
     @FXML private ComboBox<String> priorityComboBox;
-    @FXML private DatePicker dueDateField;
+    @FXML private DatePicker dueDateField; // CAMPO DATA CON PROTEZIONE
 
     // --- LOGICA ---
     private MainApp mainApp;
     private boolean isSideMenuOpen = false;
 
-    // --- I MANAGERS ---
     private TasksList tasksListHelper;
     private TasksInfoPane tasksInfoPane;
     private FiltersPane filtersPane;
@@ -82,40 +78,34 @@ public class MainScreenController {
         this.mainApp = mainApp;
         Utenti u = MainApp.getCurrentUser();
         if (u != null) usernameLabelHeader.setText(u.getNome());
-
-        // Carichiamo i task. Le categorie si caricano nel setup di FiltersPane
         tasksListHelper.loadTasks(u.getIdUtente());
     }
 
     @FXML
     private void initialize() {
-        // 1. Setup Helper LISTA (Passiamo tutti i container delle viste, inclusi quelli nuovi per la settimana)
         tasksListHelper = new TasksList(
                 taskListView, gridViewContainer, gridFlowPane,
                 calendarViewContainer, calendarGrid, weekViewContainer, weekViewBox, calendarMonthLabel,
                 mainApp,
-                this::handleEditTask,   // Edit callback
-                this::handleDeleteTask, // Delete callback
-                this::handleOpenDetail  // Click callback
+                this::handleEditTask,
+                this::handleDeleteTask,
+                this::handleOpenDetail
         );
 
-        // 2. Setup Pannello Dettagli (Passiamo anche i componenti del TIMER)
         tasksInfoPane = new TasksInfoPane(
                 rightDetailPanel, detailTitleLabel, detailCategoryLabel,
                 detailDueDatePicker, detailDescArea, subTaskListView,
                 newSubTaskField, taskListView,
-                timerLabel, timerStatusLabel, btnTimerToggle, btnTimerReset // Nuovi parametri
+                timerLabel, timerStatusLabel, btnTimerToggle, btnTimerReset
         );
 
-        // 3. Setup Filtri e Categorie
         filtersPane = new FiltersPane(filterPriorityCombo, filterDatePicker,
                 btnFilterTodo, btnFilterDone, categoryMenuContainer,
                 categoryComboBox, tasksListHelper);
 
-        // 4. Setup Form Creazione
+        // Configura il form e PROTEGGE LA DATA
         setupCreationForm();
 
-        // 5. Listener Doppio Click (Solo per ListView standard)
         taskListView.setOnMouseClicked(event -> {
             if (event.getClickCount() == 2) {
                 Tasks sel = taskListView.getSelectionModel().getSelectedItem();
@@ -125,55 +115,29 @@ public class MainScreenController {
     }
 
     // =========================================================
-    //  GESTIONE VISTE (Top Bar Switcher)
+    //  GESTIONE VISTE
     // =========================================================
-    @FXML
-    private void showListView() {
-        tasksListHelper.switchView(TasksList.ViewMode.LIST);
-        if (viewLabel != null) viewLabel.setText("Vista: Lista");
-    }
+    @FXML private void showListView() { tasksListHelper.switchView(TasksList.ViewMode.LIST); if (viewLabel != null) viewLabel.setText("Vista: Lista"); }
+    @FXML private void showGridView() { tasksListHelper.switchView(TasksList.ViewMode.GRID); if (viewLabel != null) viewLabel.setText("Vista: Board"); }
+    @FXML private void showCalendarView() { tasksListHelper.switchView(TasksList.ViewMode.CALENDAR); if (viewLabel != null) viewLabel.setText("Vista: Calendario"); }
 
-    @FXML
-    private void showGridView() {
-        tasksListHelper.switchView(TasksList.ViewMode.GRID);
-        if (viewLabel != null) viewLabel.setText("Vista: Board");
-    }
-
-    @FXML
-    private void showCalendarView() {
-        tasksListHelper.switchView(TasksList.ViewMode.CALENDAR);
-        if (viewLabel != null) viewLabel.setText("Vista: Calendario");
-    }
-
-    // =========================================================
-    //  GESTIONE CALENDARIO (Mese / Settimana / Giorno)
-    // =========================================================
     @FXML private void prevMonth() { tasksListHelper.calendarBack(); }
     @FXML private void nextMonth() { tasksListHelper.calendarForward(); }
-
-    // NOTA: Qui usiamo TasksList.CalendarMode perché l'enum è definito dentro TasksList
     @FXML private void handleCalViewMonth() { tasksListHelper.setCalendarMode(TasksList.CalendarMode.MONTH); }
     @FXML private void handleCalViewWeek()  { tasksListHelper.setCalendarMode(TasksList.CalendarMode.WEEK); }
     @FXML private void handleCalViewDay()   { tasksListHelper.setCalendarMode(TasksList.CalendarMode.DAY); }
 
-
     // =========================================================
     //  TIMER & DETTAGLI
     // =========================================================
-    @FXML
-    private void handleTimerReset() {
-        if (tasksInfoPane != null) {
-            tasksInfoPane.resetTimer();
-        }
-    }
+    @FXML private void handleTimerReset() { if (tasksInfoPane != null) tasksInfoPane.resetTimer(); }
+    @FXML private void closeRightPanel() { tasksInfoPane.closePanel(); }
+    @FXML private void handleNewSubTask() { tasksInfoPane.createSubTask(); }
 
     private void handleOpenDetail(Tasks t) {
         String catName = tasksListHelper.getCategoryName(t.getIdCategoria(), categoryComboBox.getItems());
         tasksInfoPane.openPanel(t, catName);
     }
-
-    @FXML private void closeRightPanel() { tasksInfoPane.closePanel(); }
-    @FXML private void handleNewSubTask() { tasksInfoPane.createSubTask(); }
 
     // =========================================================
     //  FILTRI
@@ -181,16 +145,21 @@ public class MainScreenController {
     @FXML private void handleShowAll() { filtersPane.resetAllFilters(); }
     @FXML private void handleFilterToDo() { filtersPane.setFilterStatus(false); }
     @FXML private void handleFilterCompleted() { filtersPane.setFilterStatus(true); }
-    // handleStatistics da implementare...
     @FXML private void handleStatistics() {}
 
     // =========================================================
-    //  CRUD TASK
+    //  CRUD TASK (CON PROTEZIONE DATA)
     // =========================================================
     @FXML
     private void handleNewTask() {
         String titolo = newTaskField.getText().trim();
         if (titolo.isEmpty()) { showAlert("Titolo obbligatorio"); return; }
+
+        // CHECK DI SICUREZZA AGGIUNTIVO PRIMA DI INSERIRE
+        if (dueDateField.getValue() != null && dueDateField.getValue().isBefore(LocalDate.now())) {
+            showAlert("Errore: Non puoi creare un task nel passato!");
+            return;
+        }
 
         try {
             Integer idCat = null;
@@ -198,8 +167,8 @@ public class MainScreenController {
 
             Tasks t = new Tasks();
             t.setTitolo(titolo);
-            t.setDescrizione(descriptionArea.getText()); // Prendiamo la descrizione dall'area grande
-            t.setPriorita(priorityComboBox.getValue());  // Prendiamo la priorità
+            t.setDescrizione(descriptionArea.getText());
+            t.setPriorita(priorityComboBox.getValue());
             t.setScadenza(dueDateField.getValue() != null ? dueDateField.getValue().toString() : null);
             t.setIdUtente(MainApp.getCurrentUser().getIdUtente());
             t.setIdCategoria(idCat);
@@ -222,8 +191,6 @@ public class MainScreenController {
             try {
                 DAOTasks.getInstance().update(t);
                 tasksListHelper.updateTaskInList(t);
-
-                // Aggiorna pannello dettagli se aperto su quel task
                 if (tasksInfoPane.isOpen() && tasksInfoPane.getCurrentTask().equals(t)) {
                     String catName = tasksListHelper.getCategoryName(t.getIdCategoria(), categoryComboBox.getItems());
                     tasksInfoPane.openPanel(t, catName);
@@ -245,7 +212,7 @@ public class MainScreenController {
     }
 
     // =========================================================
-    //  UTILITIES UI
+    //  SETUP UI E VALIDAZIONE DATA
     // =========================================================
     private void setupCreationForm() {
         if (priorityComboBox != null) {
@@ -255,6 +222,31 @@ public class MainScreenController {
             @Override public String toString(Categorie c) { return c==null?"":c.getNomeCategoria(); }
             @Override public Categorie fromString(String s) { return null; }
         });
+
+        // --- PROTEZIONE CAMPO DATA ---
+        if (dueDateField != null) {
+            // 1. Non scrivibile a mano
+            dueDateField.setEditable(false);
+
+            // 2. Giorni passati colorati e disabilitati
+            dueDateField.setDayCellFactory(picker -> new DateCell() {
+                @Override
+                public void updateItem(LocalDate date, boolean empty) {
+                    super.updateItem(date, empty);
+                    if (date != null && !empty && date.isBefore(LocalDate.now())) {
+                        setDisable(true);
+                        setStyle("-fx-background-color: #ffc0cb;"); // Rosa
+                    }
+                }
+            });
+
+            // 3. Listener automatico che resetta se selezioni data vecchia
+            dueDateField.valueProperty().addListener((obs, oldVal, newVal) -> {
+                if (newVal != null && newVal.isBefore(LocalDate.now())) {
+                    dueDateField.setValue(null);
+                }
+            });
+        }
     }
 
     @FXML
