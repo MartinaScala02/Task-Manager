@@ -401,4 +401,46 @@
 
 
 
+/* --- STILE SCHEDE (GRID VIEW) --- */
+
+/* Contenitore della scheda */
+.scheda-task {
+    -fx-background-color: #2F223D;
+    -fx-background-radius: 12;
+    -fx-border-radius: 12;
+    -fx-border-color: #3F2E51;
+    -fx-border-width: 1;
+    -fx-padding: 15;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 8, 0, 0, 4);
+    -fx-cursor: hand;
+    -fx-transition: all 0.2s ease-in-out;
+}
+
+/* Animazione Hover: si solleva e si illumina */
+.scheda-task:hover {
+    -fx-translate-y: -5;
+    -fx-background-color: #382949;
+    -fx-border-color: #F071A7;
+    -fx-effect: dropshadow(three-pass-box, rgba(240, 113, 167, 0.4), 15, 0, 0, 8);
+}
+
+.scheda-titolo {
+    -fx-text-fill: white;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+
+.scheda-desc {
+    -fx-text-fill: #aaaaaa;
+    -fx-font-size: 12px;
+}
+
+.scheda-data {
+    -fx-text-fill: #F071A7;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+}
+
+
+
 

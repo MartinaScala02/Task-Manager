@@ -502,12 +502,12 @@ public class MainApp extends Application {
     }
 
 
-class MyEventHandler implements EventHandler<WindowEvent> {
-    @Override
-    public void handle(WindowEvent windowEvent) {
-        windowEvent.consume();
-        //handleExit();
+    class MyEventHandler implements EventHandler<WindowEvent> {
+        @Override
+        public void handle(WindowEvent windowEvent) {
+            windowEvent.consume();
+            //handleExit();
+        }
     }
-}
 }
 

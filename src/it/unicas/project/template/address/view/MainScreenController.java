@@ -1,433 +1,273 @@
 package it.unicas.project.template.address.view;
 
-import it.unicas.project.template.address.model.Utenti;
-import it.unicas.project.template.address.model.Tasks;
-import it.unicas.project.template.address.model.Categorie;
-import it.unicas.project.template.address.model.dao.DAOException;
-import it.unicas.project.template.address.model.dao.mysql.DAOCategorie;
-import it.unicas.project.template.address.model.dao.mysql.DAOTasks;
 import it.unicas.project.template.address.MainApp;
+import it.unicas.project.template.address.model.Categorie;
+import it.unicas.project.template.address.model.SubTasks;
+import it.unicas.project.template.address.model.Tasks;
+import it.unicas.project.template.address.model.Utenti;
+import it.unicas.project.template.address.model.dao.DAOException;
+import it.unicas.project.template.address.model.dao.mysql.DAOTasks;
 import javafx.animation.TranslateTransition;
-import javafx.application.Platform;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
-import javafx.collections.transformation.FilteredList;
-import javafx.collections.transformation.SortedList;
 import javafx.fxml.FXML;
-import javafx.geometry.Pos;
 import javafx.scene.control.*;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 import javafx.util.StringConverter;
 
-import java.time.LocalDate;
-import java.util.List;
-
 public class MainScreenController {
 
-    @FXML
-    private VBox sideMenu;
-    @FXML
-    private VBox categoryMenuContainer;
-    @FXML
-    private TextField newTaskField;
-    @FXML
-    private TextArea descriptionArea;
-    @FXML
-    private ComboBox<Categorie> categoryComboBox;
-    @FXML
-    private ComboBox<String> priorityComboBox;
-    @FXML
-    private DatePicker dueDateField;
-    @FXML
-    private Label usernameLabelHeader;
-    @FXML
-    private ListView<Tasks> taskListView;
+    // --- FXML Components: TOP BAR ---
+    @FXML private VBox sideMenu;
+    @FXML private Label usernameLabelHeader;
+    // I toggle button della top bar (Lista, Board, Calendario)
+    @FXML private ToggleButton tglList, tglBoard, tglCalendar;
 
+    // --- AREA CENTRALE (VISTE MULTIPLE) ---
+    @FXML private ListView<Tasks> taskListView; // Vista 1: Lista
+
+    @FXML private ScrollPane gridViewContainer; // Vista 2: Griglia
+    @FXML private FlowPane gridFlowPane;
+
+    // Vista 3: Calendario (Aggiornato per supportare Mese/Settimana)
+    @FXML private BorderPane calendarViewContainer; // NOTA: Ora è un BorderPane nel nuovo FXML
+    @FXML private GridPane calendarGrid;            // Griglia Mese
+    @FXML private ScrollPane weekViewContainer;     // Scroll orizzontale per Settimana
+    @FXML private HBox weekViewBox;                 // Contenitore colonne Settimana
+    @FXML private Label calendarMonthLabel;         // Titolo periodo
+
+    // Etichetta informativa vista (Opzionale, se presente nell'FXML)
+    @FXML private Label viewLabel;
+
+    // --- SIDEBAR FILTRI (ACCORDION) ---
+    @FXML private VBox categoryMenuContainer;
+    @FXML private ComboBox<String> filterPriorityCombo;
+    @FXML private DatePicker filterDatePicker;
+    @FXML private Button btnFilterTodo, btnFilterDone;
+
+    // --- PANNELLO DETTAGLI (DX) ---
+    @FXML private VBox rightDetailPanel;
+    @FXML private Label detailTitleLabel, detailCategoryLabel;
+    @FXML private DatePicker detailDueDatePicker;
+    @FXML private TextArea detailDescArea;
+    @FXML private ListView<SubTasks> subTaskListView;
+    @FXML private TextField newSubTaskField;
+
+    // --- TIMER COMPONENTS ---
+    @FXML private Label timerLabel;
+    @FXML private Label timerStatusLabel;
+    @FXML private Button btnTimerToggle;
+    @FXML private Button btnTimerReset;
+
+    // --- FORM CREAZIONE (BASSO) ---
+    @FXML private TextField newTaskField;
+    @FXML private TextArea descriptionArea;
+    @FXML private ComboBox<Categorie> categoryComboBox;
+    @FXML private ComboBox<String> priorityComboBox;
+    @FXML private DatePicker dueDateField;
+
+    // --- LOGICA ---
     private MainApp mainApp;
-    private boolean isOpen = false;
+    private boolean isSideMenuOpen = false;
 
-    private ObservableList<Tasks> tasks;
-    private FilteredList<Tasks> filteredTasks;
-    private SortedList<Tasks> sortedTasks;
-
-    private Categorie filterSelectedCategory = null;
-    private Boolean filterCompletionStatus = null;
-
-
-    public MainScreenController() {}
+    // --- I MANAGERS ---
+    private TasksList tasksListHelper;
+    private TasksInfoPane tasksInfoPane;
+    private FiltersPane filtersPane;
 
     public void setMainApp(MainApp mainApp) {
         this.mainApp = mainApp;
-        Utenti currentUser = MainApp.getCurrentUser();
-        if (currentUser != null && currentUser.getNome() != null) {
-            usernameLabelHeader.setText(currentUser.getNome());
-        }
-        refreshTasks();
-        refreshCategories();
+        Utenti u = MainApp.getCurrentUser();
+        if (u != null) usernameLabelHeader.setText(u.getNome());
+
+        // Carichiamo i task. Le categorie si caricano nel setup di FiltersPane
+        tasksListHelper.loadTasks(u.getIdUtente());
     }
 
     @FXML
     private void initialize() {
-        Utenti currentUser = MainApp.getCurrentUser();
-        if (currentUser != null && currentUser.getNome() != null) {
-            usernameLabelHeader.setText(currentUser.getNome());
-        }
+        // 1. Setup Helper LISTA (Passiamo tutti i container delle viste, inclusi quelli nuovi per la settimana)
+        tasksListHelper = new TasksList(
+                taskListView, gridViewContainer, gridFlowPane,
+                calendarViewContainer, calendarGrid, weekViewContainer, weekViewBox, calendarMonthLabel,
+                mainApp,
+                this::handleEditTask,   // Edit callback
+                this::handleDeleteTask, // Delete callback
+                this::handleOpenDetail  // Click callback
+        );
 
-        tasks = FXCollections.observableArrayList();
-        filteredTasks = new FilteredList<>(tasks, t -> true);
-        sortedTasks = new SortedList<>(filteredTasks);
+        // 2. Setup Pannello Dettagli (Passiamo anche i componenti del TIMER)
+        tasksInfoPane = new TasksInfoPane(
+                rightDetailPanel, detailTitleLabel, detailCategoryLabel,
+                detailDueDatePicker, detailDescArea, subTaskListView,
+                newSubTaskField, taskListView,
+                timerLabel, timerStatusLabel, btnTimerToggle, btnTimerReset // Nuovi parametri
+        );
 
-        sortedTasks.setComparator((t1, t2) -> {
-            boolean c1 = t1.getCompletamento();
-            boolean c2 = t2.getCompletamento();
-            if (c1 == c2) return 0;
-            return c1 ? 1 : -1;
+        // 3. Setup Filtri e Categorie
+        filtersPane = new FiltersPane(filterPriorityCombo, filterDatePicker,
+                btnFilterTodo, btnFilterDone, categoryMenuContainer,
+                categoryComboBox, tasksListHelper);
+
+        // 4. Setup Form Creazione
+        setupCreationForm();
+
+        // 5. Listener Doppio Click (Solo per ListView standard)
+        taskListView.setOnMouseClicked(event -> {
+            if (event.getClickCount() == 2) {
+                Tasks sel = taskListView.getSelectionModel().getSelectedItem();
+                if (sel != null) handleOpenDetail(sel);
+            }
         });
-
-        taskListView.setItems(sortedTasks);
-
-        setupComboBoxes();
-        setupCellFactory();
     }
 
+    // =========================================================
+    //  GESTIONE VISTE (Top Bar Switcher)
+    // =========================================================
+    @FXML
+    private void showListView() {
+        tasksListHelper.switchView(TasksList.ViewMode.LIST);
+        if (viewLabel != null) viewLabel.setText("Vista: Lista");
+    }
 
-    private void refreshTasks() {
-        try {
-            Tasks filtro = new Tasks();
-            filtro.setIdUtente(MainApp.getCurrentUser().getIdUtente());
-            List<Tasks> list = DAOTasks.getInstance().select(filtro);
-            tasks.setAll(list);
-            applyFilters();
-        } catch (DAOException e) {
-            showAlert(Alert.AlertType.ERROR, "Impossibile caricare i task: " + e.getMessage());
+    @FXML
+    private void showGridView() {
+        tasksListHelper.switchView(TasksList.ViewMode.GRID);
+        if (viewLabel != null) viewLabel.setText("Vista: Board");
+    }
+
+    @FXML
+    private void showCalendarView() {
+        tasksListHelper.switchView(TasksList.ViewMode.CALENDAR);
+        if (viewLabel != null) viewLabel.setText("Vista: Calendario");
+    }
+
+    // =========================================================
+    //  GESTIONE CALENDARIO (Mese / Settimana / Giorno)
+    // =========================================================
+    @FXML private void prevMonth() { tasksListHelper.calendarBack(); }
+    @FXML private void nextMonth() { tasksListHelper.calendarForward(); }
+
+    // NOTA: Qui usiamo TasksList.CalendarMode perché l'enum è definito dentro TasksList
+    @FXML private void handleCalViewMonth() { tasksListHelper.setCalendarMode(TasksList.CalendarMode.MONTH); }
+    @FXML private void handleCalViewWeek()  { tasksListHelper.setCalendarMode(TasksList.CalendarMode.WEEK); }
+    @FXML private void handleCalViewDay()   { tasksListHelper.setCalendarMode(TasksList.CalendarMode.DAY); }
+
+
+    // =========================================================
+    //  TIMER & DETTAGLI
+    // =========================================================
+    @FXML
+    private void handleTimerReset() {
+        if (tasksInfoPane != null) {
+            tasksInfoPane.resetTimer();
         }
     }
 
+    private void handleOpenDetail(Tasks t) {
+        String catName = tasksListHelper.getCategoryName(t.getIdCategoria(), categoryComboBox.getItems());
+        tasksInfoPane.openPanel(t, catName);
+    }
+
+    @FXML private void closeRightPanel() { tasksInfoPane.closePanel(); }
+    @FXML private void handleNewSubTask() { tasksInfoPane.createSubTask(); }
+
+    // =========================================================
+    //  FILTRI
+    // =========================================================
+    @FXML private void handleShowAll() { filtersPane.resetAllFilters(); }
+    @FXML private void handleFilterToDo() { filtersPane.setFilterStatus(false); }
+    @FXML private void handleFilterCompleted() { filtersPane.setFilterStatus(true); }
+    // handleStatistics da implementare...
+    @FXML private void handleStatistics() {}
+
+    // =========================================================
+    //  CRUD TASK
+    // =========================================================
     @FXML
     private void handleNewTask() {
         String titolo = newTaskField.getText().trim();
-        String descrizione = descriptionArea.getText().trim();
-        String priorita = priorityComboBox.getValue();
-        LocalDate scadenza = dueDateField.getValue();
-        Categorie categoriaSelezionata = categoryComboBox.getValue();
-        String categoriaInput = categoriaSelezionata != null ? categoriaSelezionata.getNomeCategoria() : null;
-
-        if (titolo.isEmpty()) { showAlert(Alert.AlertType.WARNING, "Il titolo non può essere vuoto."); return; }
-        if (priorita == null || priorita.isBlank()) { showAlert(Alert.AlertType.WARNING, "Seleziona una priorità valida."); return; }
-        if (scadenza == null) { showAlert(Alert.AlertType.WARNING, "Seleziona una data di scadenza valida."); return; }
+        if (titolo.isEmpty()) { showAlert("Titolo obbligatorio"); return; }
 
         try {
-            Integer idCategoriaFinale = null;
-
-            if (categoriaInput != null && !categoriaInput.isBlank()) {
-                for (Categorie c : categoryComboBox.getItems()) {
-                    if (c.getNomeCategoria().equalsIgnoreCase(categoriaInput.trim())) {
-                        idCategoriaFinale = c.getIdCategoria();
-                        break;
-                    }
-                }
-                if (idCategoriaFinale == null) {
-                    Categorie nuovaCat = new Categorie(categoriaInput.trim(), null);
-                    DAOCategorie.getInstance().insert(nuovaCat);
-                    refreshCategories();
-                    for (Categorie c : categoryComboBox.getItems()) {
-                        if (c.getNomeCategoria().equalsIgnoreCase(categoriaInput.trim())) {
-                            idCategoriaFinale = c.getIdCategoria();
-                            break;
-                        }
-                    }
-                }
-            }
+            Integer idCat = null;
+            if (categoryComboBox.getValue() != null) idCat = categoryComboBox.getValue().getIdCategoria();
 
             Tasks t = new Tasks();
             t.setTitolo(titolo);
-            t.setDescrizione(descrizione);
-            t.setPriorita(priorita);
-            t.setScadenza(scadenza.toString());
+            t.setDescrizione(descriptionArea.getText()); // Prendiamo la descrizione dall'area grande
+            t.setPriorita(priorityComboBox.getValue());  // Prendiamo la priorità
+            t.setScadenza(dueDateField.getValue() != null ? dueDateField.getValue().toString() : null);
             t.setIdUtente(MainApp.getCurrentUser().getIdUtente());
-            t.setIdCategoria(idCategoriaFinale);
+            t.setIdCategoria(idCat);
             t.setCompletamento(false);
 
             DAOTasks.getInstance().insert(t);
-            tasks.add(0, t);
-            Platform.runLater(() -> taskListView.scrollTo(0));
+            tasksListHelper.addTask(t);
 
-            newTaskField.clear();
-            descriptionArea.clear();
+            // Reset campi
+            newTaskField.clear(); descriptionArea.clear();
             dueDateField.setValue(null);
-            categoryComboBox.getEditor().clear();
+            categoryComboBox.getSelectionModel().clearSelection();
             priorityComboBox.getSelectionModel().clearSelection();
 
-        } catch (DAOException e) {
-            showAlert(Alert.AlertType.ERROR, "Errore creazione task: " + e.getMessage());
-        }
+        } catch (DAOException e) { showAlert("Errore inserimento: " + e.getMessage()); }
     }
 
-    private void handleEditTask(Tasks task) {
-        boolean ok = mainApp.showTasksEditDialog(task);
-        if (ok) {
+    private void handleEditTask(Tasks t) {
+        if (mainApp.showTasksEditDialog(t)) {
             try {
-                DAOTasks.getInstance().update(task);
-                int index = tasks.indexOf(task);
-                if (index >= 0) tasks.set(index, task);
-            } catch (DAOException e) { e.printStackTrace(); }
+                DAOTasks.getInstance().update(t);
+                tasksListHelper.updateTaskInList(t);
+
+                // Aggiorna pannello dettagli se aperto su quel task
+                if (tasksInfoPane.isOpen() && tasksInfoPane.getCurrentTask().equals(t)) {
+                    String catName = tasksListHelper.getCategoryName(t.getIdCategoria(), categoryComboBox.getItems());
+                    tasksInfoPane.openPanel(t, catName);
+                }
+            } catch (Exception e) { e.printStackTrace(); }
         }
     }
 
-    private void handleDeleteTask(Tasks task) {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Eliminare questa task?", ButtonType.YES, ButtonType.NO);
+    private void handleDeleteTask(Tasks t) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Eliminare task?", ButtonType.YES, ButtonType.NO);
         alert.showAndWait();
         if (alert.getResult() == ButtonType.YES) {
-            try { DAOTasks.getInstance().delete(task); tasks.remove(task); }
-            catch (DAOException e) { showAlert(Alert.AlertType.ERROR, "Errore eliminazione task: " + e.getMessage()); }
-        }
-    }
-
-    private void handleTaskStatusChange(Tasks task) {
-        try { DAOTasks.getInstance().update(task); }
-        catch (DAOException e) { showAlert(Alert.AlertType.ERROR, "Errore aggiornamento stato: " + e.getMessage()); }
-    }
-
-
-    private void setupComboBoxes() {
-        priorityComboBox.getItems().setAll("BASSA", "MEDIA", "ALTA");
-        refreshCategories();
-
-        categoryComboBox.setEditable(true);
-        categoryComboBox.setConverter(new StringConverter<>() {
-            @Override
-            public String toString(Categorie c) { return c == null ? "" : c.getNomeCategoria(); }
-
-            @Override
-            public Categorie fromString(String string) {
-                if (string == null || string.isBlank()) return null;
-                for (Categorie c : categoryComboBox.getItems()) {
-                    if (c.getNomeCategoria().equalsIgnoreCase(string.trim())) return c;
-                }
-                return new Categorie(string.trim(), null);
-            }
-        });
-    }
-
-    private void refreshCategories() {
-        try {
-            List<Categorie> listaCategorie = DAOCategorie.getInstance().select(null);
-            categoryComboBox.setItems(FXCollections.observableArrayList(listaCategorie));
-            loadCategoriaContainer();
-        } catch (DAOException e) {
-            showAlert(Alert.AlertType.ERROR, "Errore caricamento categorie: " + e.getMessage());
-        }
-    }
-
-    private void eliminaCategoria(Categorie c) {
-        if (tasks.stream().anyMatch(t -> t.getIdCategoria() != null && t.getIdCategoria().equals(c.getIdCategoria()))) {
-            showAlert(Alert.AlertType.WARNING, "Impossibile eliminare: ci sono task collegati.");
-            return;
-        }
-
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-                "Eliminare categoria '" + c.getNomeCategoria() + "'?", ButtonType.YES, ButtonType.NO);
-        confirm.showAndWait();
-        if (confirm.getResult() == ButtonType.YES) {
             try {
-                DAOCategorie.getInstance().delete(c);
-                refreshCategories();
-                if (filterSelectedCategory != null && filterSelectedCategory.getIdCategoria().equals(c.getIdCategoria())) {
-                    filterSelectedCategory = null;
-                    applyFilters();
-                }
-            } catch (DAOException ex) {
-                showAlert(Alert.AlertType.ERROR, "Errore eliminazione categoria: " + ex.getMessage());
-            }
+                DAOTasks.getInstance().delete(t);
+                tasksListHelper.removeTask(t);
+                if (tasksInfoPane.getCurrentTask() == t) tasksInfoPane.closePanel();
+            } catch (Exception e) { showAlert("Errore eliminazione: " + e.getMessage()); }
         }
     }
 
-    private void loadCategoriaContainer() {
-        if (categoryMenuContainer == null) return;
-        categoryMenuContainer.getChildren().clear();
-
-        Hyperlink allLink = new Hyperlink("Tutte le Categorie");
-        allLink.setOnAction(e -> handleShowAll());
-        categoryMenuContainer.getChildren().add(allLink);
-
-        for (Categorie c : categoryComboBox.getItems()) {
-            if (c.getIdCategoria() != null && c.getIdCategoria() > 0) {
-                HBox h = new HBox(5);
-                h.setAlignment(Pos.CENTER_LEFT);
-
-                Hyperlink catLink = new Hyperlink(c.getNomeCategoria());
-                catLink.setOnAction(e -> {
-                    filterSelectedCategory = c;
-                    filterCompletionStatus = null;
-                    applyFilters();
-                });
-                HBox.setHgrow(catLink, javafx.scene.layout.Priority.ALWAYS);
-
-                Button btnX = new Button("x");
-                btnX.setStyle("-fx-font-size: 10px; -fx-padding: 2 5; -fx-background-color: transparent; -fx-text-fill: red;");
-                btnX.setOnAction(e -> eliminaCategoria(c));
-
-                h.getChildren().addAll(catLink, btnX);
-                categoryMenuContainer.getChildren().add(h);
-            }
+    // =========================================================
+    //  UTILITIES UI
+    // =========================================================
+    private void setupCreationForm() {
+        if (priorityComboBox != null) {
+            priorityComboBox.getItems().setAll("BASSA", "MEDIA", "ALTA");
         }
-    }
-
-    /*** FILTERS ***/
-    private void applyFilters() {
-        filteredTasks.setPredicate(task -> {
-            boolean categoryMatches = true;
-            if (filterSelectedCategory != null && filterSelectedCategory.getIdCategoria() != null) {
-                categoryMatches = task.getIdCategoria() != null &&
-                        task.getIdCategoria().equals(filterSelectedCategory.getIdCategoria());
-            }
-
-            boolean statusMatches = true;
-            if (filterCompletionStatus != null) {
-                statusMatches = task.getCompletamento() == filterCompletionStatus;
-            }
-
-            return categoryMatches && statusMatches;
-        });
-
-        Platform.runLater(() -> {
-            taskListView.scrollTo(0);
-            taskListView.getSelectionModel().clearSelection();
+        categoryComboBox.setConverter(new StringConverter<>() {
+            @Override public String toString(Categorie c) { return c==null?"":c.getNomeCategoria(); }
+            @Override public Categorie fromString(String s) { return null; }
         });
     }
-
-    @FXML
-    private void handleFilterToDo() { filterCompletionStatus = false; applyFilters(); }
-    @FXML
-    private void handleFilterCompleted() { filterCompletionStatus = true; applyFilters(); }
-    @FXML
-    private void handleShowAll() { filterSelectedCategory = null; filterCompletionStatus = null; applyFilters(); }
-
-
-    private void setupCellFactory() {
-        taskListView.setCellFactory(param -> new ListCell<>() {
-            @Override
-            protected void updateItem(Tasks task, boolean empty) {
-                super.updateItem(task, empty);
-
-                if (empty || task == null) {
-                    setText(null);
-                    setGraphic(null);
-                    setOpacity(1.0);
-                    setStyle("");
-                    return;
-                }
-
-                CheckBox completeBox = new CheckBox();
-                completeBox.setSelected(task.getCompletamento());
-                completeBox.setOnAction(e -> {
-                    boolean nuovoStato = completeBox.isSelected();
-                    task.setCompletamento(nuovoStato);
-
-                    if (filterCompletionStatus != null) applyFilters();
-                    else {
-                        int index = tasks.indexOf(task);
-                        if (index >= 0) tasks.set(index, task);
-                    }
-
-                    new Thread(() -> handleTaskStatusChange(task)).start();
-                });
-
-                Label priorityBadge = new Label(task.getPriorita() != null ? task.getPriorita().trim() : "");
-                String colore = switch(priorityBadge.getText().toUpperCase()) {
-                    case "ALTA" -> "#e74c3c";
-                    case "MEDIA" -> "#f39c12";
-                    case "BASSA" -> "#27ae60";
-                    default -> "grey";
-                };
-                priorityBadge.setStyle("-fx-text-fill:white;-fx-background-color:" + colore + ";-fx-padding:3 7 3 7;-fx-background-radius:5;");
-
-                String nomeCat = getNomeCategoriaDaId(task.getIdCategoria());
-                Label textLabel = new Label(task.getTitolo() + (!nomeCat.isEmpty() ? " (" + nomeCat + ")" : ""));
-                textLabel.setStyle(task.getCompletamento() ? "-fx-text-fill: #aaaaaa; -fx-font-size:14px; -fx-strikethrough: true;" :
-                        "-fx-text-fill: white; -fx-font-size:14px; -fx-strikethrough: false;");
-
-                MenuItem editItem = new MenuItem("Modifica");
-                MenuItem deleteItem = new MenuItem("Elimina");
-                editItem.setOnAction(e -> handleEditTask(task));
-                deleteItem.setOnAction(e -> handleDeleteTask(task));
-                MenuButton menuButton = new MenuButton("⋮", null, editItem, deleteItem);
-                menuButton.getStyleClass().add("task-menu-button");
-
-                HBox taskContent = new HBox(10, completeBox, priorityBadge, textLabel, menuButton);
-                taskContent.setAlignment(Pos.CENTER_LEFT);
-                HBox.setHgrow(textLabel, javafx.scene.layout.Priority.ALWAYS);
-                textLabel.setMaxWidth(Double.MAX_VALUE);
-                taskContent.setOpacity(task.getCompletamento() ? 0.5 : 1.0);
-
-                boolean showSeparator = false;
-                if (task.getCompletamento()) {
-                    int currentIndex = getIndex();
-                    var items = getListView().getItems();
-                    if (currentIndex > 0 && currentIndex < items.size()) {
-                        Tasks prev = items.get(currentIndex - 1);
-                        if (!prev.getCompletamento()) showSeparator = true;
-                    } else if (currentIndex == 0) showSeparator = true;
-                }
-
-                //mi dà errore strano con questo
-//                if (showSeparator) {
-//                    VBox container = new VBox(5);
-//                    Label sepLabel = new Label("COMPLETATE");
-//                    sepLabel.setStyle("-fx-text-fill: #F071A7; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10 0 5 0;");
-//                    Separator line = new Separator();
-//                    line.setStyle("-fx-opacity: 0.3; -fx-background-color: #F071A7;");
-//                    container.getChildren().addAll(line, sepLabel, taskContent);
-//                    setGraphic(container);
-//                } else setGraphic(taskContent);
-
-                //così non mi esce l'errore
-                Label sepLabel = new Label("COMPLETATE");
-                sepLabel.setStyle("-fx-text-fill: #F071A7; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 5 0 5 0;");
-                sepLabel.setVisible(showSeparator);
-
-                VBox cellContainer = new VBox(5, sepLabel, taskContent);
-                setGraphic(cellContainer);
-
-
-            }
-        });
-    }
-
-    private String getNomeCategoriaDaId(Integer id) {
-        if (id == null || id <= 0) return "";
-        for (Categorie c : categoryComboBox.getItems()) {
-            if (c.getIdCategoria() != null && c.getIdCategoria().equals(id)) return c.getNomeCategoria();
-        }
-        return "";
-    }
-
-    private void showAlert(Alert.AlertType type, String msg) {
-        Alert a = new Alert(type, msg); a.setHeaderText(null); a.showAndWait();
-    }
-
-
-    @FXML
-    private void handleLogout() { mainApp.showUtentiLogin(); }
-    @FXML
-    private void handleExit() { System.exit(0); }
-    @FXML
-    private void handleProfile() { mainApp.showUtentiProfile(mainApp.getCurrentUser()); }
 
     @FXML
     private void toggleMenu() {
-        double target = isOpen ? -300 : 0;
         TranslateTransition tt = new TranslateTransition(Duration.millis(350), sideMenu);
-        tt.setToX(target); tt.play(); isOpen = !isOpen;
+        tt.setToX(isSideMenuOpen ? -300 : 0);
+        tt.play();
+        isSideMenuOpen = !isSideMenuOpen;
     }
 
-    @FXML
-    private void handleStatistics() {
+    @FXML private void handleLogout() { mainApp.showUtentiLogin(); }
+    @FXML private void handleExit() { System.exit(0); }
+    @FXML private void handleProfile() { mainApp.showUtentiProfile(MainApp.getCurrentUser()); }
 
-    }
-    @FXML
-    private void handleViewSwitch() {
-      }
+    private void showAlert(String msg) { new Alert(Alert.AlertType.WARNING, msg).show(); }
 }
