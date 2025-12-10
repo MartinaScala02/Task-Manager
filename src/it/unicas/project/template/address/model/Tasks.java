@@ -9,18 +9,19 @@ public class Tasks {
     private StringProperty scadenza;
     private StringProperty priorita;
     private StringProperty data_creazione;
-    private BooleanProperty completamento;
+    private ObjectProperty<Boolean> completamento;
     private IntegerProperty idTask;
     private IntegerProperty idUtente;
     private IntegerProperty idCategoria;
+    private StringProperty durataTotaleDisplay;
 
     /**
      * Costruttore di default.
      */
     public Tasks() {
-        this(null, null, null, null, null, false, null, null, null);
-    }
 
+        this(null, null, null, null, null, null, null, null, null);
+    }
     /**
      * Costruttore COMPLETO usato dal DAOTasks.
      * Ordine parametri: titolo, descrizione, scadenza, priorita, data_creazione, completamento, idTask, idUtente, idCategoria
@@ -31,7 +32,8 @@ public class Tasks {
         this.scadenza = new SimpleStringProperty(scadenza);
         this.priorita = new SimpleStringProperty(priorita);
         this.data_creazione = new SimpleStringProperty(data_creazione);
-        this.completamento = new SimpleBooleanProperty(completamento);
+        this.completamento = new SimpleObjectProperty<>(completamento);
+        this.durataTotaleDisplay = new SimpleStringProperty("00:00:00");
 
         if (idTask != null) {
             this.idTask = new SimpleIntegerProperty(idTask);
@@ -102,8 +104,6 @@ public class Tasks {
     public void setDescrizione(String descrizione) { this.descrizione.set(descrizione); }
     public StringProperty descrizioneProperty() { return descrizione; }
 
-    // NOTA: Non c'è più getCategoria() (stringa), usiamo getIdCategoria()
-
     public String getScadenza() { return scadenza.get(); }
     public void setScadenza(String scadenza) { this.scadenza.set(scadenza); }
     public StringProperty scadenzaProperty() { return scadenza; }
@@ -114,11 +114,16 @@ public class Tasks {
 
     public Boolean getCompletamento() { return completamento.get(); }
     public void setCompletamento(Boolean completamento) { this.completamento.set(completamento); }
-    public BooleanProperty completamentoProperty() { return completamento; }
+    public ObjectProperty<Boolean> completamentoProperty() { return completamento; }
 
     public String getData_creazione() { return data_creazione.get(); }
     public void setData_creazione(String data_creazione) { this.data_creazione.set(data_creazione); }
     public StringProperty data_creazioneProperty() { return data_creazione; }
+
+    //per la visualizzazione della durata totale delle sessioni timer
+    public String getDurataTotaleDisplay() { return durataTotaleDisplay.get(); }
+    public void setDurataTotaleDisplay(String durata) { this.durataTotaleDisplay.set(durata); }
+    public StringProperty durataTotaleDisplayProperty() { return durataTotaleDisplay; }
 
     @Override
     public String toString() {

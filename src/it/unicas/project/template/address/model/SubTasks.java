@@ -75,4 +75,7 @@ public class SubTasks {
     }
 
 
+    public void setStato(boolean b) {
+        this.completamento.set(b);
+    }
 }

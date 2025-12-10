@@ -442,5 +442,22 @@
 }
 
 
+.toggle-button {
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 10 15 10 15;
+    -fx-background-radius: 0;
+    -fx-cursor: hand;
+    -fx-font-size: 13px;
+    -fx-text-fill: #aaaaaa;
+    -fx-background-color: transparent;
+}
+
+/* Stato selezionato */
+.toggle-button:selected {
+    -fx-background-color: #2F223D;
+    -fx-text-fill: #F071A7;
+
+}
+
 
 
