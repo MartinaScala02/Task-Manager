@@ -15,8 +15,8 @@ public class FiltersPane {
     //per l'UI (final-> riferimenti immutabili dopo costruzione)
     private final ComboBox<String> filterPriorityCombo;
     private final DatePicker filterDatePicker;
-    private final Button btnFilterTodo;
-    private final Button btnFilterDone;
+    private final ToggleButton btnFilterTodo;
+    private final ToggleButton btnFilterDone;
     private final VBox categoryMenuContainer;
     private final ComboBox<Categorie> formCategoryCombo; //serve per aggiornare anche la combobox nel form di creazione
 
@@ -24,7 +24,7 @@ public class FiltersPane {
     private final TasksList tasksListHelper;
 
     //costruttore
-    public FiltersPane(ComboBox<String> filterPriorityCombo, DatePicker filterDatePicker, Button btnFilterTodo, Button btnFilterDone, VBox categoryMenuContainer, ComboBox<Categorie> formCategoryCombo, TasksList tasksListHelper) {
+    public FiltersPane(ComboBox<String> filterPriorityCombo, DatePicker filterDatePicker, ToggleButton btnFilterTodo, ToggleButton btnFilterDone, VBox categoryMenuContainer, ComboBox<Categorie> formCategoryCombo, TasksList tasksListHelper) {
 
         this.filterPriorityCombo = filterPriorityCombo;
         this.filterDatePicker = filterDatePicker;
@@ -70,7 +70,7 @@ public class FiltersPane {
 
 
         if (status != null) {
-            Button activeBtn = status ? btnFilterDone : btnFilterTodo; //se status true mi evidenzia il pulsante done se false mi evidenzia il pulsante todo -> colora il pulsante corrispondente a quello selezionato
+            ToggleButton activeBtn = status ? btnFilterDone : btnFilterTodo; //se status true mi evidenzia il pulsante done se false mi evidenzia il pulsante todo -> colora il pulsante corrispondente a quello selezionato
             if (activeBtn != null) {
                 activeBtn.setStyle("-fx-background-color: #F071A7; -fx-text-fill: white; -fx-font-weight: bold;");
             }
@@ -117,7 +117,7 @@ public class FiltersPane {
                     });
 
                     Button btnX = new Button("x");
-                    btnX.setStyle("-fx-text-fill: #e74c3c; -fx-background-color:transparent; -fx-font-weight: bold;");
+                    btnX.setStyle("-fx-text-fill: #e74c3c; -fx-background-color:transparent; -fx-font-weight: bold; -fx-border-color: transparent;");
                     btnX.setOnAction(e -> deleteCategory(c));
 
                     row.getChildren().addAll(link, btnX);

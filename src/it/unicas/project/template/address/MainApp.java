@@ -510,4 +510,3 @@ public class MainApp extends Application {
         }
     }
 }
-

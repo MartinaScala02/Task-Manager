@@ -4,6 +4,7 @@ import it.unicas.project.template.address.MainApp;
 import it.unicas.project.template.address.model.Categorie;
 import it.unicas.project.template.address.model.SubTasks;
 import it.unicas.project.template.address.model.Tasks;
+import it.unicas.project.template.address.model.TimerSessions; // IMPORTATO IL MODEL
 import it.unicas.project.template.address.model.Utenti;
 import it.unicas.project.template.address.model.dao.DAOException;
 import it.unicas.project.template.address.model.dao.mysql.DAOTasks;
@@ -17,17 +18,13 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 import javafx.util.StringConverter;
-import java.time.LocalDate;
-import javafx.scene.control.DateCell;
 
 public class MainScreenController {
 
-    // --- FXML Components: TOP BAR ---
+    @FXML private TextField txtSearch;
+
     @FXML private VBox sideMenu;
     @FXML private Label usernameLabelHeader;
-    @FXML private ToggleButton tglList, tglBoard, tglCalendar;
-
-    // --- AREA CENTRALE ---
     @FXML private ListView<Tasks> taskListView;
     @FXML private ScrollPane gridViewContainer;
     @FXML private FlowPane gridFlowPane;
@@ -37,15 +34,16 @@ public class MainScreenController {
     @FXML private ScrollPane weekViewContainer;
     @FXML private HBox weekViewBox;
     @FXML private Label calendarMonthLabel;
+
     @FXML private Label viewLabel;
 
-    // --- SIDEBAR FILTRI ---
     @FXML private VBox categoryMenuContainer;
     @FXML private ComboBox<String> filterPriorityCombo;
     @FXML private DatePicker filterDatePicker;
-    @FXML private Button btnFilterTodo, btnFilterDone;
 
-    // --- PANNELLO DETTAGLI ---
+    @FXML private ToggleButton btnFilterTodo;
+    @FXML private ToggleButton btnFilterDone;
+
     @FXML private VBox rightDetailPanel;
     @FXML private Label detailTitleLabel, detailCategoryLabel;
     @FXML private DatePicker detailDueDatePicker;
@@ -53,20 +51,24 @@ public class MainScreenController {
     @FXML private ListView<SubTasks> subTaskListView;
     @FXML private TextField newSubTaskField;
 
-    // --- TIMER ---
+    // --- CAMPI TIMER BASE ---
     @FXML private Label timerLabel;
     @FXML private Label timerStatusLabel;
     @FXML private Button btnTimerToggle;
     @FXML private Button btnTimerReset;
 
-    // --- FORM CREAZIONE (IL PUNTO CRITICO) ---
+    // --- NUOVI CAMPI TIMER (STORICO & MENU) ---
+    @FXML private Button btnTimerMenu;           // La freccia ▼
+    @FXML private VBox timerHistoryContainer;    // Il contenitore a tendina nascosto
+    @FXML private ListView<TimerSessions> timerHistoryList; // La lista delle sessioni
+    @FXML private Label timerTotalLabel;         // La label del totale ore
+
     @FXML private TextField newTaskField;
     @FXML private TextArea descriptionArea;
     @FXML private ComboBox<Categorie> categoryComboBox;
     @FXML private ComboBox<String> priorityComboBox;
-    @FXML private DatePicker dueDateField; // CAMPO DATA CON PROTEZIONE
+    @FXML private DatePicker dueDateField;
 
-    // --- LOGICA ---
     private MainApp mainApp;
     private boolean isSideMenuOpen = false;
 
@@ -74,20 +76,23 @@ public class MainScreenController {
     private TasksInfoPane tasksInfoPane;
     private FiltersPane filtersPane;
 
+    // --- STILI DEFINITIVI ---
+    private final String STYLE_COMMON = "-fx-alignment: CENTER_LEFT; -fx-padding: 10 15 10 15; -fx-cursor: hand; -fx-background-radius: 0; -fx-font-size: 13px; ";
+    private final String STYLE_NORMAL = STYLE_COMMON + "-fx-background-color: transparent; -fx-text-fill: #aaaaaa; -fx-border-width: 0;";
+    private final String STYLE_SELECTED = STYLE_COMMON + "-fx-background-color: #2F223D; -fx-text-fill: #F071A7; -fx-font-weight: bold; -fx-border-color: #F071A7; -fx-border-width: 0 0 0 3;";
+
     public void setMainApp(MainApp mainApp) {
         this.mainApp = mainApp;
         Utenti u = MainApp.getCurrentUser();
         if (u != null) usernameLabelHeader.setText(u.getNome());
-        tasksListHelper.loadTasks(u.getIdUtente());
+
+        if (tasksListHelper != null && u != null) {
+            tasksListHelper.loadTasks(u.getIdUtente());
+        }
     }
 
     @FXML
     private void initialize() {
-        // --- FIX: RIMUOVE I NUMERI SETTIMANA DAI DATEPICKER ---
-        if (filterDatePicker != null) filterDatePicker.setShowWeekNumbers(false);
-        if (detailDueDatePicker != null) detailDueDatePicker.setShowWeekNumbers(false);
-        // dueDateField viene gestito in setupCreationForm, ma per sicurezza:
-        if (dueDateField != null) dueDateField.setShowWeekNumbers(false);
 
         tasksListHelper = new TasksList(
                 taskListView, gridViewContainer, gridFlowPane,
@@ -98,19 +103,35 @@ public class MainScreenController {
                 this::handleOpenDetail
         );
 
+        if (txtSearch != null) {
+            txtSearch.textProperty().addListener((observable, oldValue, newValue) -> {
+                tasksListHelper.setFilterKeyword(newValue);
+            });
+        }
+
+        // --- INIZIALIZZAZIONE AGGIORNATA TASKSINFOPANE ---
+        // Passiamo tutti i componenti, inclusi quelli nuovi dello storico
         tasksInfoPane = new TasksInfoPane(
                 rightDetailPanel, detailTitleLabel, detailCategoryLabel,
                 detailDueDatePicker, detailDescArea, subTaskListView,
                 newSubTaskField, taskListView,
-                timerLabel, timerStatusLabel, btnTimerToggle, btnTimerReset
+
+                // Vecchi parametri timer
+                timerLabel, timerStatusLabel, btnTimerToggle, btnTimerReset,
+
+                // NUOVI parametri timer (Menu a tendina e storico)
+                btnTimerMenu, timerHistoryContainer, timerHistoryList, timerTotalLabel
         );
 
         filtersPane = new FiltersPane(filterPriorityCombo, filterDatePicker,
                 btnFilterTodo, btnFilterDone, categoryMenuContainer,
                 categoryComboBox, tasksListHelper);
 
-        // Configura il form e PROTEGGE LA DATA
         setupCreationForm();
+
+        // --- APPLICAZIONE DESIGN BOTTONI ---
+        setupFilterButtonDesign(btnFilterTodo);
+        setupFilterButtonDesign(btnFilterDone);
 
         taskListView.setOnMouseClicked(event -> {
             if (event.getClickCount() == 2) {
@@ -118,55 +139,116 @@ public class MainScreenController {
                 if (sel != null) handleOpenDetail(sel);
             }
         });
+
+
     }
 
-    // =========================================================
-    //  GESTIONE VISTE
-    // =========================================================
-    @FXML private void showListView() { tasksListHelper.switchView(TasksList.ViewMode.LIST); if (viewLabel != null) viewLabel.setText("Vista: Lista"); }
-    @FXML private void showGridView() { tasksListHelper.switchView(TasksList.ViewMode.GRID); if (viewLabel != null) viewLabel.setText("Vista: Board"); }
-    @FXML private void showCalendarView() { tasksListHelper.switchView(TasksList.ViewMode.CALENDAR); if (viewLabel != null) viewLabel.setText("Vista: Calendario"); }
+    // --- NUOVO EVENT HANDLER PER LA FRECCIA DEL TIMER ---
+    @FXML
+    private void handleToggleTimerMenu() {
+        if (tasksInfoPane != null) {
+            tasksInfoPane.toggleHistoryMenu();
+        }
+    }
+
+    @FXML
+    private void handleTimerToggle() {
+        if (tasksInfoPane != null) {
+            tasksInfoPane.toggleTimer();
+        }
+    }
+
+    private void setupFilterButtonDesign(ToggleButton btn) {
+        if (btn == null) return;
+        btn.setStyle(STYLE_NORMAL);
+        btn.selectedProperty().addListener((obs, wasSelected, isSelected) -> {
+            if (isSelected) btn.setStyle(STYLE_SELECTED);
+            else btn.setStyle(STYLE_NORMAL);
+        });
+        btn.hoverProperty().addListener((obs, wasHovered, isHovered) -> {
+            if (!btn.isSelected()) {
+                if (isHovered) btn.setStyle(STYLE_COMMON + "-fx-background-color: #2F223D; -fx-text-fill: white; -fx-border-width: 0;");
+                else btn.setStyle(STYLE_NORMAL);
+            }
+        });
+
+
+    }
+
+    @FXML
+    private void showListView() {
+        tasksListHelper.switchView(TasksList.ViewMode.LIST);
+        if (viewLabel != null) viewLabel.setText("Vista: Lista");
+    }
+
+    @FXML
+    private void showGridView() {
+        tasksListHelper.switchView(TasksList.ViewMode.GRID);
+        if (viewLabel != null) viewLabel.setText("Vista: Board");
+    }
+
+    @FXML
+    private void showCalendarView() {
+        tasksListHelper.switchView(TasksList.ViewMode.CALENDAR);
+        if (viewLabel != null) viewLabel.setText("Vista: Calendario");
+    }
 
     @FXML private void prevMonth() { tasksListHelper.calendarBack(); }
     @FXML private void nextMonth() { tasksListHelper.calendarForward(); }
+
     @FXML private void handleCalViewMonth() { tasksListHelper.setCalendarMode(TasksList.CalendarMode.MONTH); }
     @FXML private void handleCalViewWeek()  { tasksListHelper.setCalendarMode(TasksList.CalendarMode.WEEK); }
     @FXML private void handleCalViewDay()   { tasksListHelper.setCalendarMode(TasksList.CalendarMode.DAY); }
 
-    // =========================================================
-    //  TIMER & DETTAGLI
-    // =========================================================
-    @FXML private void handleTimerReset() { if (tasksInfoPane != null) tasksInfoPane.resetTimer(); }
-    @FXML private void closeRightPanel() { tasksInfoPane.closePanel(); }
-    @FXML private void handleNewSubTask() { tasksInfoPane.createSubTask(); }
+    @FXML
+    private void handleTimerReset() {
+        if (tasksInfoPane != null) {
+            tasksInfoPane.resetTimer();
+        }
+    }
 
     private void handleOpenDetail(Tasks t) {
         String catName = tasksListHelper.getCategoryName(t.getIdCategoria(), categoryComboBox.getItems());
         tasksInfoPane.openPanel(t, catName);
     }
 
-    // =========================================================
-    //  FILTRI
-    // =========================================================
-    @FXML private void handleShowAll() { filtersPane.resetAllFilters(); }
-    @FXML private void handleFilterToDo() { filtersPane.setFilterStatus(false); }
-    @FXML private void handleFilterCompleted() { filtersPane.setFilterStatus(true); }
-    @FXML private void handleStatistics() {}
+    @FXML private void closeRightPanel() { tasksInfoPane.closePanel(); }
+    @FXML private void handleNewSubTask() { tasksInfoPane.createSubTask(); }
 
-    // =========================================================
-    //  CRUD TASK (CON PROTEZIONE DATA)
-    // =========================================================
+    @FXML
+    private void handleShowAll() {
+        filtersPane.resetAllFilters();
+        if (txtSearch != null) txtSearch.clear();
+        if (btnFilterTodo != null) btnFilterTodo.setSelected(false);
+        if (btnFilterDone != null) btnFilterDone.setSelected(false);
+    }
+
+    @FXML
+    private void handleFilterToDo() {
+        if (btnFilterTodo.isSelected()) {
+            btnFilterDone.setSelected(false);
+            filtersPane.setFilterStatus(false);
+        } else {
+            filtersPane.setFilterStatus(null);
+        }
+    }
+
+    @FXML
+    private void handleFilterCompleted() {
+        if (btnFilterDone.isSelected()) {
+            btnFilterTodo.setSelected(false);
+            filtersPane.setFilterStatus(true);
+        } else {
+            filtersPane.setFilterStatus(null);
+        }
+    }
+
+    @FXML private void handleStatistics() { mainApp.showBirthdayStatistics(); }
+
     @FXML
     private void handleNewTask() {
         String titolo = newTaskField.getText().trim();
         if (titolo.isEmpty()) { showAlert("Titolo obbligatorio"); return; }
-
-        // CHECK DI SICUREZZA AGGIUNTIVO PRIMA DI INSERIRE
-        if (dueDateField.getValue() != null && dueDateField.getValue().isBefore(LocalDate.now())) {
-            showAlert("Errore: Non puoi creare un task nel passato!");
-            return;
-        }
-
         try {
             Integer idCat = null;
             if (categoryComboBox.getValue() != null) idCat = categoryComboBox.getValue().getIdCategoria();
@@ -176,14 +258,20 @@ public class MainScreenController {
             t.setDescrizione(descriptionArea.getText());
             t.setPriorita(priorityComboBox.getValue());
             t.setScadenza(dueDateField.getValue() != null ? dueDateField.getValue().toString() : null);
-            t.setIdUtente(MainApp.getCurrentUser().getIdUtente());
+
+            if (MainApp.getCurrentUser() != null) {
+                t.setIdUtente(MainApp.getCurrentUser().getIdUtente());
+            } else {
+                showAlert("Nessun utente loggato!");
+                return;
+            }
+
             t.setIdCategoria(idCat);
             t.setCompletamento(false);
 
             DAOTasks.getInstance().insert(t);
             tasksListHelper.addTask(t);
 
-            // Reset campi
             newTaskField.clear(); descriptionArea.clear();
             dueDateField.setValue(null);
             categoryComboBox.getSelectionModel().clearSelection();
@@ -217,9 +305,6 @@ public class MainScreenController {
         }
     }
 
-    // =========================================================
-    //  SETUP UI E VALIDAZIONE DATA
-    // =========================================================
     private void setupCreationForm() {
         if (priorityComboBox != null) {
             priorityComboBox.getItems().setAll("BASSA", "MEDIA", "ALTA");
@@ -228,34 +313,6 @@ public class MainScreenController {
             @Override public String toString(Categorie c) { return c==null?"":c.getNomeCategoria(); }
             @Override public Categorie fromString(String s) { return null; }
         });
-
-        // --- PROTEZIONE CAMPO DATA ---
-        if (dueDateField != null) {
-            // FIX: Disabilita numeri settimana anche qui
-            dueDateField.setShowWeekNumbers(false);
-
-            // 1. Non scrivibile a mano
-            dueDateField.setEditable(false);
-
-            // 2. Giorni passati colorati e disabilitati
-            dueDateField.setDayCellFactory(picker -> new DateCell() {
-                @Override
-                public void updateItem(LocalDate date, boolean empty) {
-                    super.updateItem(date, empty);
-                    if (date != null && !empty && date.isBefore(LocalDate.now())) {
-                        setDisable(true);
-                        setStyle("-fx-background-color: #ffc0cb;"); // Rosa
-                    }
-                }
-            });
-
-            // 3. Listener automatico che resetta se selezioni data vecchia
-            dueDateField.valueProperty().addListener((obs, oldVal, newVal) -> {
-                if (newVal != null && newVal.isBefore(LocalDate.now())) {
-                    dueDateField.setValue(null);
-                }
-            });
-        }
     }
 
     @FXML
@@ -267,7 +324,7 @@ public class MainScreenController {
     }
 
     @FXML private void handleLogout() { mainApp.showUtentiLogin(); }
-    @FXML private void handleExit() { System.exit(0); }
+    @FXML private void handleExit() { mainApp.handleExit(); }
     @FXML private void handleProfile() { mainApp.showUtentiProfile(MainApp.getCurrentUser()); }
 
     private void showAlert(String msg) { new Alert(Alert.AlertType.WARNING, msg).show(); }

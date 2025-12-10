@@ -19,9 +19,9 @@ public class Tasks {
      * Costruttore di default.
      */
     public Tasks() {
-        this(null, null, null, null, null, false, null, null, null);
-    }
 
+        this(null, null, null, null, null, null, null, null, null);
+    }
     /**
      * Costruttore COMPLETO usato dal DAOTasks.
      * Ordine parametri: titolo, descrizione, scadenza, priorita, data_creazione, completamento, idTask, idUtente, idCategoria
@@ -120,6 +120,7 @@ public class Tasks {
     public void setData_creazione(String data_creazione) { this.data_creazione.set(data_creazione); }
     public StringProperty data_creazioneProperty() { return data_creazione; }
 
+    //per la visualizzazione della durata totale delle sessioni timer
     public String getDurataTotaleDisplay() { return durataTotaleDisplay.get(); }
     public void setDurataTotaleDisplay(String durata) { this.durataTotaleDisplay.set(durata); }
     public StringProperty durataTotaleDisplayProperty() { return durataTotaleDisplay; }

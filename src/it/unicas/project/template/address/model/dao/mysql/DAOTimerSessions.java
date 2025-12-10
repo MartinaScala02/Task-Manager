@@ -163,7 +163,7 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
     }
 
 
-    public void stopSession(int idSession) throws DAOException {
+    public void stopSession(int idSession, LocalDateTime endLocalTime) throws DAOException {
         if (idSession <= 0) throw new DAOException("ID Sessione non valido.");
 
         Statement st = null;
