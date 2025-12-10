@@ -7,6 +7,9 @@ import it.unicas.project.template.address.model.dao.DAO;
 import it.unicas.project.template.address.model.dao.DAOException;
 import it.unicas.project.template.address.model.dao.mysql.DAOSubTasks;
 import it.unicas.project.template.address.model.dao.mysql.DAOTimerSessions;
+// IMPORT NECESSARIO
+import it.unicas.project.template.address.util.DateUtil;
+
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.animation.TranslateTransition;
@@ -20,7 +23,7 @@ import javafx.scene.layout.VBox;
 import javafx.util.Duration;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime; // <--- IMPORTANTE
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -57,9 +60,8 @@ public class TasksInfoPane {
     private boolean isOpen = false;
     private ObservableList<SubTasks> subTasksList;
 
-    // *** ID DB e ORARIO LOCALE ***
     private volatile int currentDbSessionId = -1;
-    private LocalDateTime startLocalTime; // <--- NUOVA VARIABILE PER SINCRONIZZARE IL TEMPO
+    private LocalDateTime startLocalTime;
 
     public TasksInfoPane(VBox rightDetailPanel, Label detailTitleLabel, Label detailCategoryLabel,
                          DatePicker detailDueDatePicker, TextArea detailDescArea,
@@ -114,10 +116,6 @@ public class TasksInfoPane {
         setupTimerLogic();
     }
 
-    // =================================================================================
-    //  LOGICA TIMER (CORRETTA, ASINCRONA E SENZA ERRORI DI ARROTONDAMENTO)
-    // =================================================================================
-
     private void setupTimerLogic() {
         timeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
             secondsElapsed++;
@@ -134,34 +132,23 @@ public class TasksInfoPane {
         if (currentSelectedTask == null) return;
 
         if (isTimerRunning) {
-            // === PAUSA (STOP) ===
             timeline.stop();
             isTimerRunning = false;
             updateUIState(false);
-
-            // STOP DB
             stopDbSessionAndReload();
-
         } else {
-            // === AVVIA (START) ===
             secondsElapsed = 0;
             updateTimerDisplay(0);
-
-            // 1. Catturiamo l'ora esatta tronca ai secondi PRIMA di far partire l'animazione
             startLocalTime = LocalDateTime.now().withNano(0);
-
             timeline.play();
             isTimerRunning = true;
             updateUIState(true);
-
-            // START DB
             startDbSession();
         }
     }
 
     private void startDbSession() {
         int taskId = currentSelectedTask.getIdTask();
-        // Copia locale per sicurezza nel thread
         LocalDateTime myStart = this.startLocalTime;
 
         CompletableFuture.runAsync(() -> {
@@ -169,14 +156,9 @@ public class TasksInfoPane {
                 TimerSessions session = new TimerSessions();
                 session.setIdTask(taskId);
                 session.setNome("Sessione");
-
-                // IMPORTANTE: Impostiamo l'ora locale tronca, NON usiamo NOW() del DB
                 session.setInizio(myStart);
-
                 DAOTimerSessions.getInstance().insert(session);
-
                 currentDbSessionId = session.getIdSession();
-
             } catch (DAOException e) {
                 e.printStackTrace();
                 Platform.runLater(() -> {
@@ -190,20 +172,13 @@ public class TasksInfoPane {
     private void stopDbSessionAndReload() {
         int idDaChiudere = currentDbSessionId;
         int taskId = currentSelectedTask.getIdTask();
-
-        // CALCOLO MATEMATICO PRECISO:
-        // Fine = Inizio + Secondi Contati dal Timer Grafico
-        // Questo elimina il disallineamento dei millisecondi
         LocalDateTime endLocalTime = startLocalTime.plusSeconds(secondsElapsed);
 
         CompletableFuture.runAsync(() -> {
             try {
                 if (idDaChiudere > 0) {
-                    // Chiamiamo il metodo aggiornato che accetta l'ora di fine esplicita
                     DAOTimerSessions.getInstance().stopSession(idDaChiudere, endLocalTime);
                 }
-
-                // Ricarica storico
                 TimerSessions filtro = new TimerSessions();
                 filtro.setIdTask(taskId);
                 List<TimerSessions> history = DAOTimerSessions.getInstance().select(filtro);
@@ -213,9 +188,7 @@ public class TasksInfoPane {
                     if (timerHistoryList != null) timerHistoryList.getItems().setAll(history);
                     updateTotalTimeLabel(totale);
                 });
-
                 currentDbSessionId = -1;
-
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -229,10 +202,6 @@ public class TasksInfoPane {
         if (timerStatusLabel != null) timerStatusLabel.setText("Pronto");
     }
 
-    // =================================================================================
-    //  GESTIONE SUBTASK
-    // =================================================================================
-
     public void createSubTask() {
         String titolo = newSubTaskField.getText().trim();
         if (titolo.isEmpty() || currentSelectedTask == null) return;
@@ -244,9 +213,7 @@ public class TasksInfoPane {
                 st.setIdTask(currentSelectedTask.getIdTask());
                 st.setCompletamento(false);
                 st.setDescrizione("");
-
                 DAOSubTasks.getInstance().insert(st);
-
                 Platform.runLater(() -> {
                     subTasksList.add(st);
                     newSubTaskField.clear();
@@ -270,10 +237,7 @@ public class TasksInfoPane {
         });
     }
 
-    // =================================================================================
-    //  GESTIONE PANNELLO (OPEN/CLOSE)
-    // =================================================================================
-
+    // --- FIX DATA QUI SOTTO ---
     public void openPanel(Tasks task, String categoryName) {
         this.currentSelectedTask = task;
 
@@ -282,23 +246,31 @@ public class TasksInfoPane {
         if (detailCategoryLabel != null) detailCategoryLabel.setText(categoryName);
 
         if (detailDueDatePicker != null) {
-            if (task.getScadenza() != null && !task.getScadenza().isEmpty())
-                detailDueDatePicker.setValue(LocalDate.parse(task.getScadenza()));
-            else detailDueDatePicker.setValue(null);
+            if (task.getScadenza() != null && !task.getScadenza().isEmpty()) {
+                // USIAMO IL PARSING INTELLIGENTE
+                LocalDate date = null;
+                try {
+                    // Prova standard ISO (yyyy-MM-dd)
+                    date = LocalDate.parse(task.getScadenza());
+                } catch (Exception e) {
+                    // Prova formato Italiano (dd-MM-yyyy) tramite DateUtil
+                    date = DateUtil.parse(task.getScadenza());
+                }
+                detailDueDatePicker.setValue(date);
+            } else {
+                detailDueDatePicker.setValue(null);
+            }
         }
 
-        // Reset completo Timer
         resetTimer();
         isTimerRunning = false;
         if(timeline != null) timeline.stop();
         updateUIState(false);
         currentDbSessionId = -1;
 
-        // Reset UI Storico
         if (timerHistoryList != null) timerHistoryList.getItems().clear();
         if (timerTotalLabel != null) timerTotalLabel.setText("--:--:--");
 
-        // Chiudi tendina
         if (timerHistoryContainer != null) {
             timerHistoryContainer.setVisible(false);
             timerHistoryContainer.setManaged(false);
@@ -332,7 +304,7 @@ public class TasksInfoPane {
 
     public void closePanel() {
         if (isTimerRunning) {
-            toggleTimer(); // Ferma e salva se stai chiudendo mentre gira
+            toggleTimer();
         }
 
         if (isOpen && rightDetailPanel != null) {
@@ -345,10 +317,6 @@ public class TasksInfoPane {
             currentSelectedTask = null;
         }
     }
-
-    // =================================================================================
-    //  HELPERS UI & FACTORIES
-    // =================================================================================
 
     private void updateUIState(boolean running) {
         if (timerStatusLabel != null) timerStatusLabel.setText(running ? "In corso..." : "In pausa");
@@ -399,30 +367,24 @@ public class TasksInfoPane {
                     setGraphic(null);
                     setStyle("-fx-background-color: transparent;");
                 } else {
-                    // 1. Creiamo il layout orizzontale
                     HBox box = new HBox(10);
                     box.setAlignment(Pos.CENTER_LEFT);
 
-                    // 2. Creiamo l'etichetta con i dati (Data e Durata)
                     String dateStr = (item.getInizio() != null) ? item.getInizio().format(DateTimeFormatter.ofPattern("dd/MM HH:mm")) : "--/--";
                     Label label = new Label(dateStr + "  ➜  " + item.getDurataFormattata());
                     label.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 11px;");
 
-                    // Spingiamo il bottone tutto a destra
                     HBox.setHgrow(label, javafx.scene.layout.Priority.ALWAYS);
                     label.setMaxWidth(Double.MAX_VALUE);
 
-                    // 3. Creiamo il bottone Elimina (X)
                     Button delBtn = new Button("×");
                     delBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #e74c3c; -fx-font-weight: bold; -fx-font-size: 14px; -fx-cursor: hand; -fx-padding: 0 5 0 5; -fx-border-color: transparent;");
 
-                    // 4. Azione di eliminazione
                     delBtn.setOnAction(e -> deleteSession(item));
 
-                    // 5. Assembliamo la cella
                     box.getChildren().addAll(label, delBtn);
                     setGraphic(box);
-                    setText(null); // Importante: puliamo il testo semplice perché usiamo il grafico
+                    setText(null);
                     setStyle("-fx-background-color: transparent; -fx-padding: 2;");
                 }
             }
@@ -436,28 +398,16 @@ public class TasksInfoPane {
         alert.showAndWait();
 
         if (alert.getResult() == ButtonType.YES) {
-
-            // ⚡ 1. FEEDBACK ISTANTANEO (OTTIMISTICO)
-            // Rimuoviamo l'elemento dalla lista grafica SUBITO.
-            // L'utente vedrà la riga sparire all'istante.
             timerHistoryList.getItems().remove(item);
-
-            // 🐢 2. LAVORO SPORCO NEL DATABASE (IN BACKGROUND)
             CompletableFuture.runAsync(() -> {
                 try {
-                    // Cancelliamo dal DB mentre l'utente continua a lavorare
                     DAOTimerSessions.getInstance().delete(item);
-
-                    // Aggiorniamo solo l'etichetta del totale per correttezza matematica
                     if (currentSelectedTask != null) {
                         long nuovoTotale = DAOTimerSessions.getInstance().getSommaDurataPerTask(currentSelectedTask.getIdTask());
                         Platform.runLater(() -> updateTotalTimeLabel(nuovoTotale));
                     }
-
                 } catch (DAOException e) {
                     e.printStackTrace();
-                    // 🚨 ROLLBACK GRAFICO IN CASO DI ERRORE
-                    // Se il DB fallisce, dobbiamo rimettere l'elemento nella lista e avvisare
                     Platform.runLater(() -> {
                         timerHistoryList.getItems().add(item);
                         new Alert(Alert.AlertType.ERROR, "Errore di rete: Impossibile eliminare. La sessione è stata ripristinata.").show();

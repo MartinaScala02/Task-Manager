@@ -41,7 +41,7 @@ public class DAOTasks implements DAO<Tasks> {
             String sql = "SELECT * FROM Tasks WHERE 1=1 ";
 
             if (t != null) {
-                // 1. FILTRO PAROLA CHIAVE (Cerca nel titolo E nella descrizione)
+                // 1. FILTRO PAROLA CHIAVE
                 if (t.getTitolo() != null && !t.getTitolo().isEmpty()) {
                     String keyword = t.getTitolo().replace("'", "\\'");
                     sql += " AND (titolo LIKE '%" + keyword + "%' OR descrizione LIKE '%" + keyword + "%')";
@@ -57,15 +57,20 @@ public class DAOTasks implements DAO<Tasks> {
                     sql += " AND idCategoria = " + t.getIdCategoria();
                 }
 
-                // 4. FILTRO STATO (Completamento)
+                // 4. FILTRO STATO
                 if (t.getCompletamento() != null) {
                     int stato = t.getCompletamento() ? 1 : 0;
                     sql += " AND completamento = " + stato;
                 }
 
-                // Filtro Utente (sempre presente per sicurezza)
+                // 5. FILTRO UTENTE
                 if (t.getIdUtente() != null && t.getIdUtente() > 0) {
                     sql += " AND idUtente = " + t.getIdUtente();
+                }
+
+                // --- 6. FILTRO DATA SCADENZA ---
+                if (t.getScadenza() != null && !t.getScadenza().isEmpty()) {
+                    sql += " AND scadenza = '" + t.getScadenza() + "'";
                 }
             }
 
@@ -108,7 +113,6 @@ public class DAOTasks implements DAO<Tasks> {
 
     @Override
     public void insert(Tasks t) throws DAOException {
-        // 1. VERIFICA RIGOROSA (Blocca le date passate qui)
         verifyObject(t);
 
         Statement st = null;
@@ -161,7 +165,6 @@ public class DAOTasks implements DAO<Tasks> {
             throw new DAOException("Impossibile aggiornare: idTask non valido.");
         }
 
-        // 2. VERIFICA RIGOROSA ANCHE IN UPDATE
         verifyObject(t);
 
         int completatoInt = (t.getCompletamento() != null && t.getCompletamento()) ? 1 : 0;
@@ -201,14 +204,13 @@ public class DAOTasks implements DAO<Tasks> {
             try {
                 LocalDate dataScadenza = null;
 
-                // Tenta il parsing: accetta sia yyyy-MM-dd (Standard SQL) che dd-MM-yyyy (Tua App)
+                // accetta sia yyyy-MM-dd (Standard SQL) che dd-MM-yyyy
                 if (t.getScadenza().matches("\\d{4}-\\d{2}-\\d{2}")) {
                     dataScadenza = LocalDate.parse(t.getScadenza());
                 } else {
                     dataScadenza = LocalDate.parse(t.getScadenza(), DateTimeFormatter.ofPattern("dd-MM-yyyy"));
                 }
 
-                // CONTROLLO CRUCIALE: Se la data è passata -> ECCEZIONE
                 if (dataScadenza.isBefore(LocalDate.now())) {
                     throw new DAOException("ERRORE BLOCCANTE: Non puoi salvare task nel passato! (" + t.getScadenza() + ")");
                 }
@@ -218,7 +220,7 @@ public class DAOTasks implements DAO<Tasks> {
                 throw new DAOException("Formato data non valido: " + t.getScadenza());
             }
         } else {
-            // Se vuoi rendere la data obbligatoria sempre, scommenta questa riga:
+            // per rendere la data obbligatoria
             // throw new DAOException("La data di scadenza è obbligatoria.");
         }
     }

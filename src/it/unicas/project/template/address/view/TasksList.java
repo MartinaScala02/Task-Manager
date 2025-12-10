@@ -5,11 +5,14 @@ import it.unicas.project.template.address.model.Categorie;
 import it.unicas.project.template.address.model.Tasks;
 import it.unicas.project.template.address.model.dao.DAOException;
 import it.unicas.project.template.address.model.dao.mysql.DAOTasks;
+import it.unicas.project.template.address.util.DateUtil;
+
 import javafx.application.Platform;
+import javafx.beans.value.ChangeListener;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
 import javafx.collections.transformation.SortedList;
-import javafx.collections.transformation.FilteredList; // IMPORT NECESSARIO
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -54,6 +57,7 @@ public class TasksList {
     // DATA
     private ObservableList<Tasks> tasks;
     private SortedList<Tasks> sortedTasks;
+    private FilteredList<Tasks> filteredTasks;
 
     // STATE FILTRI
     private Categorie filterCategory = null;
@@ -92,26 +96,28 @@ public class TasksList {
 
     private void init() {
         tasks = FXCollections.observableArrayList();
-        sortedTasks = new SortedList<>(tasks);
+        filteredTasks = new FilteredList<>(tasks, t -> true);
+        sortedTasks = new SortedList<>(filteredTasks);
 
-        // Ordinamento Client-Side
         sortedTasks.setComparator((t1, t2) -> {
             if (t1.getCompletamento() != t2.getCompletamento()) return t1.getCompletamento() ? 1 : -1;
-            String d1 = t1.getScadenza() == null ? "9999-12-31" : t1.getScadenza();
-            String d2 = t2.getScadenza() == null ? "9999-12-31" : t2.getScadenza();
+
+            LocalDate d1 = smartParse(t1.getScadenza());
+            LocalDate d2 = smartParse(t2.getScadenza());
+
+            if (d1 == null && d2 == null) return 0;
+            if (d1 == null) return 1;
+            if (d2 == null) return -1;
+
             return d1.compareTo(d2);
         });
 
         taskListView.setItems(sortedTasks);
         setupCellFactory();
 
-        // --- FIX VIBRAZIONE GRIGLIA ---
-        // Forziamo la scrollbar verticale a essere sempre presente (anche se disabilitata).
-        // Questo impedisce al layout di cambiare larghezza continuamente.
         if (gridViewContainer != null) {
             gridViewContainer.setVbarPolicy(ScrollPane.ScrollBarPolicy.ALWAYS);
         }
-        // ------------------------------
 
         gridFlowPane.widthProperty().addListener((obs, oldVal, newVal) -> {
             if (currentViewMode == ViewMode.GRID) resizeGridCards(newVal.doubleValue());
@@ -124,6 +130,15 @@ public class TasksList {
         }
     }
 
+    private LocalDate smartParse(String dateString) {
+        if (dateString == null || dateString.isEmpty()) return null;
+        try {
+            return LocalDate.parse(dateString); // Standard ISO
+        } catch (Exception e) {
+            return DateUtil.parse(dateString); // Formato Italiano
+        }
+    }
+
     public void loadTasks(Integer userId) {
         reloadTasksFromDB();
     }
@@ -131,23 +146,27 @@ public class TasksList {
     private void reloadTasksFromDB() {
         if (MainApp.getCurrentUser() == null) return;
 
-        // Eseguiamo in background per non bloccare la UI (anche se la ricerca è istantanea, il DB richiede tempo)
         Thread dbThread = new Thread(() -> {
             try {
                 Tasks filterTemplate = new Tasks();
                 filterTemplate.setIdUtente(MainApp.getCurrentUser().getIdUtente());
 
+                // Passiamo al DB solo i filtri sicuri (non la data!)
                 if (filterCategory != null) filterTemplate.setIdCategoria(filterCategory.getIdCategoria());
                 if (filterStatus != null) filterTemplate.setCompletamento(filterStatus);
                 if (filterPriority != null && !filterPriority.equalsIgnoreCase("TUTTE")) filterTemplate.setPriorita(filterPriority);
-                if (filterDate != null) filterTemplate.setScadenza(filterDate.toString());
+                // NOTA: Non settiamo la scadenza qui! La filtriamo noi in Java per gestire i formati misti.
+                // if (filterDate != null) filterTemplate.setScadenza(filterDate.toString());
                 if (filterKeyword != null && !filterKeyword.isEmpty()) filterTemplate.setTitolo(filterKeyword);
 
                 List<Tasks> results = DAOTasks.getInstance().select(filterTemplate);
 
                 Platform.runLater(() -> {
                     tasks.setAll(results);
-                    refreshView();
+                    // Rilanciamo il filtro locale per applicare la data
+                    applyFilters();
+                    taskListView.refresh();
+                    if (currentViewMode != ViewMode.LIST) refreshView();
                 });
 
             } catch (DAOException e) {
@@ -166,11 +185,7 @@ public class TasksList {
         reloadTasksFromDB();
     }
 
-    // --- METODI CRUD LOCALI ---
-    public void addTask(Tasks t) {
-        tasks.add(0, t);
-        refreshView();
-    }
+    public void addTask(Tasks t) { tasks.add(0, t); refreshView(); }
 
     public void updateTaskInList(Tasks t) {
         for (int i = 0; i < tasks.size(); i++) {
@@ -182,12 +197,8 @@ public class TasksList {
         refreshView();
     }
 
-    public void removeTask(Tasks t) {
-        tasks.remove(t);
-        refreshView();
-    }
+    public void removeTask(Tasks t) { tasks.remove(t); refreshView(); }
 
-    // --- GESTIONE VISTE ---
     public void switchView(ViewMode mode) {
         this.currentViewMode = mode;
         taskListView.setVisible(mode == ViewMode.LIST); taskListView.setManaged(mode == ViewMode.LIST);
@@ -222,6 +233,7 @@ public class TasksList {
     }
 
     private void refreshView() {
+        applyFilters(); // Assicuriamoci che i filtri siano applicati
         Platform.runLater(() -> {
             if (currentViewMode == ViewMode.GRID) renderGrid();
             else if (currentViewMode == ViewMode.CALENDAR) renderCalendarDispatcher();
@@ -229,26 +241,53 @@ public class TasksList {
         });
     }
 
-    // --- SETTERS FILTRI ---
     public void setFilterCategory(Categorie c) { this.filterCategory = c; reloadTasksFromDB(); }
     public void setFilterStatus(Boolean s) { this.filterStatus = s; reloadTasksFromDB(); }
     public void setFilterPriority(String p) { this.filterPriority = p; reloadTasksFromDB(); }
+
+    // Quando settiamo la data, non serve ricaricare dal DB (abbiamo tolto il filtro lì),
+    // basta riapplicare il filtro locale. È molto più veloce!
     public void setFilterDate(LocalDate d) {
         this.filterDate = d;
         if (d != null && currentViewMode == ViewMode.CALENDAR) currentCalendarDate = d;
-        reloadTasksFromDB();
+        applyFilters();
+        refreshView();
     }
 
     public void clearFilters() {
-        this.filterCategory = null;
-        this.filterStatus = null;
-        this.filterPriority = null;
-        this.filterDate = null;
-        this.filterKeyword = null;
+        this.filterCategory = null; this.filterStatus = null;
+        this.filterPriority = null; this.filterDate = null; this.filterKeyword = null;
         reloadTasksFromDB();
     }
 
-    // --- RENDERING GRIGLIA ---
+    // --- FILTRO CLIENT-SIDE POTENZIATO (Gestisce date miste) ---
+    private void applyFilters() {
+        filteredTasks.setPredicate(task -> {
+            // Filtri già applicati dal DB (ridondanti ma sicuri)
+            boolean catMatch = (filterCategory == null) || (task.getIdCategoria() != null && task.getIdCategoria().equals(filterCategory.getIdCategoria()));
+            boolean statMatch = (filterStatus == null) || (task.getCompletamento() == filterStatus);
+            boolean prioMatch = true;
+            if (filterPriority != null && !filterPriority.isEmpty() && !filterPriority.equalsIgnoreCase("TUTTE")) {
+                prioMatch = task.getPriorita() != null && task.getPriorita().equalsIgnoreCase(filterPriority);
+            }
+
+            // FILTRO DATA INTELLIGENTE
+            boolean dateMatch = true;
+            if (filterDate != null) {
+                if (task.getScadenza() == null || task.getScadenza().isEmpty()) {
+                    dateMatch = false;
+                } else {
+                    LocalDate tDate = smartParse(task.getScadenza());
+                    dateMatch = (tDate != null && tDate.isEqual(filterDate));
+                }
+            }
+
+            boolean keyMatch = (filterKeyword == null || filterKeyword.isEmpty()) || (task.getTitolo().toLowerCase().contains(filterKeyword.toLowerCase()));
+
+            return catMatch && statMatch && prioMatch && dateMatch && keyMatch;
+        });
+    }
+
     private void renderGrid() {
         gridFlowPane.getChildren().clear();
         for (Tasks t : sortedTasks) {
@@ -307,20 +346,24 @@ public class TasksList {
 
         if (task.getScadenza() != null && !task.getScadenza().isEmpty() && !task.getCompletamento()) {
             try {
-                LocalDate scad = LocalDate.parse(task.getScadenza());
-                LocalDate oggi = LocalDate.now();
-                if (scad.isBefore(oggi)) {
-                    dateText = "⚠ SCADUTA IL " + task.getScadenza();
-                    dateStyle = "-fx-text-fill: #FF5555; -fx-font-weight: bold; -fx-font-size: 10px;";
-                } else if (scad.isEqual(oggi)) {
-                    dateText = "🔥 SCADE OGGI";
-                    dateStyle = "-fx-text-fill: #FFB86C; -fx-font-weight: bold; -fx-font-size: 10px;";
-                } else if (scad.isEqual(oggi.plusDays(1))) {
-                    dateText = "⏳ SCADE DOMANI";
-                    dateStyle = "-fx-text-fill: #8BE9FD; -fx-font-weight: bold; -fx-font-size: 10px;";
+                LocalDate scad = smartParse(task.getScadenza());
+                if (scad != null) {
+                    LocalDate oggi = LocalDate.now();
+                    if (scad.isBefore(oggi)) {
+                        dateText = "⚠ SCADUTA IL " + DateUtil.format(scad);
+                        dateStyle = "-fx-text-fill: #FF5555; -fx-font-weight: bold; -fx-font-size: 10px;";
+                    } else if (scad.isEqual(oggi)) {
+                        dateText = "🔥 SCADE OGGI";
+                        dateStyle = "-fx-text-fill: #FFB86C; -fx-font-weight: bold; -fx-font-size: 10px;";
+                    } else if (scad.isEqual(oggi.plusDays(1))) {
+                        dateText = "⏳ SCADE DOMANI";
+                        dateStyle = "-fx-text-fill: #8BE9FD; -fx-font-weight: bold; -fx-font-size: 10px;";
+                    } else {
+                        dateText = "📅 " + DateUtil.format(scad);
+                        dateStyle = "-fx-text-fill: #bd93f9; -fx-font-size: 10px;";
+                    }
                 } else {
-                    dateText = "📅 " + task.getScadenza();
-                    dateStyle = "-fx-text-fill: #bd93f9; -fx-font-size: 10px;";
+                    dateText = task.getScadenza();
                 }
             } catch (Exception e) { dateText = task.getScadenza(); }
         }
@@ -355,6 +398,7 @@ public class TasksList {
         calendarGrid.getColumnConstraints().clear();
         calendarGrid.getRowConstraints().clear();
         calendarMonthLabel.setText(currentCalendarDate.getMonth().getDisplayName(TextStyle.FULL, Locale.ITALIAN).toUpperCase() + " " + currentCalendarDate.getYear());
+
         for (int i = 0; i < 7; i++) {
             ColumnConstraints col = new ColumnConstraints();
             col.setPercentWidth(100.0 / 7);
@@ -365,33 +409,47 @@ public class TasksList {
         for (int i = 0; i < 6; i++) {
             RowConstraints row = new RowConstraints(); row.setVgrow(Priority.ALWAYS); calendarGrid.getRowConstraints().add(row);
         }
+
         String[] days = {"LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"};
         for (int i = 0; i < 7; i++) {
             Label l = new Label(days[i]); l.setMaxWidth(Double.MAX_VALUE); l.setAlignment(Pos.CENTER);
             l.setStyle("-fx-text-fill: #F071A7; -fx-font-weight: bold; -fx-background-color: #1F162A; -fx-padding: 5;");
             calendarGrid.add(l, i, 0);
         }
+
         LocalDate firstOfMonth = currentCalendarDate.withDayOfMonth(1);
         int dayOfWeek = firstOfMonth.getDayOfWeek().getValue() - 1;
         int daysInMonth = currentCalendarDate.lengthOfMonth();
         LocalDate today = LocalDate.now();
         int row = 1; int col = dayOfWeek;
+
         for (int day = 1; day <= daysInMonth; day++) {
             LocalDate date = currentCalendarDate.withDayOfMonth(day);
             BorderPane cell = new BorderPane();
             String style = "-fx-background-color: #2b2236; -fx-border-color: #3F2E51; -fx-border-width: 0.5;";
             if (date.equals(today)) style = "-fx-background-color: #362945; -fx-border-color: #F071A7; -fx-border-width: 2;";
             cell.setStyle(style);
+
             Label dayNum = new Label(String.valueOf(day));
             dayNum.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 12px; -fx-font-weight: bold; -fx-padding: 5;");
             BorderPane.setAlignment(dayNum, Pos.TOP_RIGHT);
             cell.setTop(dayNum);
+
             VBox tasksContainer = new VBox(2); tasksContainer.setPadding(new Insets(2));
             ScrollPane sp = new ScrollPane(tasksContainer); sp.setFitToWidth(true); sp.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER); sp.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED); sp.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-padding: 0;");
+
             for (Tasks t : sortedTasks) {
-                if (t.getScadenza() != null && t.getScadenza().equals(date.toString())) tasksContainer.getChildren().add(createMiniTaskCard(t));
+                if (t.getScadenza() != null && !t.getScadenza().isEmpty()) {
+                    LocalDate taskDate = smartParse(t.getScadenza());
+                    if (taskDate != null && taskDate.isEqual(date)) {
+                        tasksContainer.getChildren().add(createMiniTaskCard(t));
+                    }
+                }
             }
-            cell.setCenter(sp); calendarGrid.add(cell, col, row); col++; if (col > 6) { col = 0; row++; }
+            cell.setCenter(sp);
+            calendarGrid.add(cell, col, row);
+
+            col++; if (col > 6) { col = 0; row++; }
         }
     }
 
@@ -416,7 +474,12 @@ public class TasksList {
             colBody.setStyle("-fx-background-color: " + (isToday ? "rgba(240, 113, 167, 0.1)" : "#231a2e") + "; -fx-border-color: #3F2E51; -fx-border-width: 0 1 1 1;");
             VBox.setVgrow(colBody, Priority.ALWAYS); colBody.setMinHeight(300);
             for (Tasks t : sortedTasks) {
-                if (t.getScadenza() != null && t.getScadenza().equals(date.toString())) colBody.getChildren().add(createMiniTaskCard(t));
+                if (t.getScadenza() != null && !t.getScadenza().isEmpty()) {
+                    LocalDate taskDate = smartParse(t.getScadenza());
+                    if (taskDate != null && taskDate.isEqual(date)) {
+                        colBody.getChildren().add(createMiniTaskCard(t));
+                    }
+                }
             }
             VBox fullColumn = new VBox(0, colHeader, colBody); fullColumn.setMinWidth(colWidth); fullColumn.setPrefWidth(colWidth);
             HBox.setHgrow(fullColumn, Priority.ALWAYS); weekViewBox.getChildren().add(fullColumn);
@@ -428,7 +491,13 @@ public class TasksList {
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.ITALIAN);
         calendarMonthLabel.setText(currentCalendarDate.format(fmt).toUpperCase());
         VBox dayContainer = new VBox(10); dayContainer.setPadding(new Insets(20)); dayContainer.setStyle("-fx-background-color: #231a2e; -fx-background-radius: 10;"); dayContainer.prefWidthProperty().bind(weekViewContainer.widthProperty().subtract(40));
-        List<Tasks> dailyTasks = sortedTasks.stream().filter(t -> t.getScadenza() != null && t.getScadenza().equals(currentCalendarDate.toString())).collect(Collectors.toList());
+
+        List<Tasks> dailyTasks = sortedTasks.stream().filter(t -> {
+            if (t.getScadenza() == null || t.getScadenza().isEmpty()) return false;
+            LocalDate taskDate = smartParse(t.getScadenza());
+            return taskDate != null && taskDate.isEqual(currentCalendarDate);
+        }).collect(Collectors.toList());
+
         if (dailyTasks.isEmpty()) { Label empty = new Label("Nessuna attività per questo giorno."); empty.setStyle("-fx-text-fill: #666; -fx-font-size: 14px; -fx-padding: 20;"); dayContainer.getChildren().add(empty); }
         else { for (Tasks t : dailyTasks) dayContainer.getChildren().add(createGridCard(t)); }
         weekViewBox.getChildren().add(dayContainer);
@@ -454,44 +523,47 @@ public class TasksList {
 
     private void setupCellFactory() {
         taskListView.setCellFactory(param -> new ListCell<>() {
+
+            // Listener Semplificato che chiama il refresh dell'intera lista
+            // Questo evita glitch grafici quando si resettano i filtri
+            private final ChangeListener<String> scadenzaListener = (obs, oldVal, newVal) -> {
+                taskListView.refresh();
+            };
+            private final ChangeListener<Boolean> completamentoListener = (obs, oldVal, newVal) -> {
+                taskListView.refresh();
+            };
+
             @Override
             protected void updateItem(Tasks task, boolean empty) {
+                Tasks oldTask = getItem();
+                if (oldTask != null) {
+                    oldTask.scadenzaProperty().removeListener(scadenzaListener);
+                    oldTask.completamentoProperty().removeListener(completamentoListener);
+                }
+
                 super.updateItem(task, empty);
 
-                // 1. GESTIONE CELLE VUOTE
                 if (empty || task == null) {
-                    setText(null);
-                    setGraphic(null);
-                    // Rimuovi lo stile inline qui, lascia fare al CSS
-                    getStyleClass().remove("task-cell-populated");
-                    return;
+                    setText(null); setGraphic(null); return;
                 }
 
-                // Aggiungiamo una classe CSS custom quando la cella è piena
-                if (!getStyleClass().contains("task-cell-populated")) {
-                    getStyleClass().add("task-cell-populated");
-                }
+                task.scadenzaProperty().addListener(scadenzaListener);
+                task.completamentoProperty().addListener(completamentoListener);
 
-                // --- 1. COSTRUZIONE DEL CONTENUTO ---
                 CheckBox completeBox = new CheckBox();
                 completeBox.setSelected(task.getCompletamento());
                 completeBox.setOnAction(e -> {
                     task.setCompletamento(completeBox.isSelected());
-                    new Thread(() -> {
-                        try { DAOTasks.getInstance().update(task); } catch (Exception ex) { ex.printStackTrace(); }
-                    }).start();
+                    new Thread(() -> { try { DAOTasks.getInstance().update(task); } catch (Exception ex) { ex.printStackTrace(); } }).start();
                     reloadTasksFromDB();
                 });
 
                 Label priorityBadge = new Label(task.getPriorita() != null ? task.getPriorita().trim() : "");
                 String colore = switch (priorityBadge.getText().toUpperCase()) {
-                    case "ALTA" -> "#e74c3c";
-                    case "MEDIA" -> "#f39c12";
-                    default -> "#27ae60";
+                    case "ALTA" -> "#e74c3c"; case "MEDIA" -> "#f39c12"; default -> "#27ae60";
                 };
                 priorityBadge.setStyle("-fx-text-fill:white; -fx-background-color:" + colore + "; -fx-padding: 5 12; -fx-background-radius: 6; -fx-font-weight: bold; -fx-font-size: 12px;");
-                priorityBadge.setMinWidth(Region.USE_PREF_SIZE);
-                priorityBadge.setMinHeight(Region.USE_PREF_SIZE);
+                priorityBadge.setMinWidth(Region.USE_PREF_SIZE); priorityBadge.setMinHeight(Region.USE_PREF_SIZE);
 
                 Label textLabel = new Label(task.getTitolo());
                 textLabel.setStyle(task.getCompletamento() ? "-fx-text-fill: #aaa; -fx-strikethrough: true; -fx-font-size: 15px;" : "-fx-text-fill: white; -fx-font-size: 15px;");
@@ -500,17 +572,19 @@ public class TasksList {
                 Label dateLabel = new Label();
                 if (!task.getCompletamento() && task.getScadenza() != null && !task.getScadenza().isEmpty()) {
                     try {
-                        LocalDate scad = LocalDate.parse(task.getScadenza());
-                        LocalDate oggi = LocalDate.now();
-                        if (scad.isBefore(oggi)) {
-                            dateLabel.setText("⌛ SCADUTA");
-                            dateLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-weight: bold; -fx-font-size: 12px;");
-                        } else if (scad.isEqual(oggi)) {
-                            dateLabel.setText("⏳ OGGI");
-                            dateLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-weight: bold; -fx-font-size: 12px;");
-                        } else if (scad.isEqual(oggi.plusDays(1))) {
-                            dateLabel.setText("⏳ DOMANI");
-                            dateLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-weight: bold; -fx-font-size: 12px;");
+                        LocalDate scad = smartParse(task.getScadenza());
+                        if (scad != null) {
+                            LocalDate oggi = LocalDate.now();
+                            if (scad.isBefore(oggi)) { dateLabel.setText("⌛ SCADUTA"); dateLabel.setStyle("-fx-text-fill: #FF5555; -fx-font-weight: bold; -fx-font-size: 12px;"); }
+                            else if (scad.isEqual(oggi)) { dateLabel.setText("🔥 OGGI"); dateLabel.setStyle("-fx-text-fill: #FFB86C; -fx-font-weight: bold; -fx-font-size: 12px;"); }
+                            else if (scad.isEqual(oggi.plusDays(1))) { dateLabel.setText("⏳ DOMANI"); dateLabel.setStyle("-fx-text-fill: #8BE9FD; -fx-font-weight: bold; -fx-font-size: 12px;"); }
+                            else {
+                                dateLabel.setText("📅 " + DateUtil.format(scad));
+                                dateLabel.setStyle("-fx-text-fill: #bd93f9; -fx-font-size: 10px;");
+                            }
+                        } else {
+                            dateLabel.setText("📅 " + task.getScadenza());
+                            dateLabel.setStyle("-fx-text-fill: #bd93f9; -fx-font-size: 10px;");
                         }
                     } catch (Exception e) {}
                 }
@@ -524,54 +598,29 @@ public class TasksList {
                 menuButton.getStyleClass().add("task-menu-button");
                 menuButton.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 16px;");
 
-                Region spacer = new Region();
-                HBox.setHgrow(spacer, Priority.ALWAYS);
-
+                Region spacer = new Region(); HBox.setHgrow(spacer, Priority.ALWAYS);
                 HBox taskContent = new HBox(15, completeBox, priorityBadge, textLabel, spacer, dateLabel, menuButton);
-                taskContent.setAlignment(Pos.CENTER_LEFT);
-                taskContent.setPadding(new Insets(5, 0, 5, 0));
+                taskContent.setAlignment(Pos.CENTER_LEFT); taskContent.setPadding(new Insets(5, 0, 5, 0));
                 taskContent.setOpacity(task.getCompletamento() ? 0.5 : 1.0);
 
-                // --- 2. LOGICA DEL SEPARATORE ---
                 VBox rootContainer = new VBox(0);
-                rootContainer.setStyle("-fx-background-color: transparent;"); // Questo va bene qui
-
+                rootContainer.setStyle("-fx-background-color: transparent;");
                 boolean showSeparator = false;
                 if (task.getCompletamento()) {
                     int index = getIndex();
-                    if (index == 0) {
-                        showSeparator = true;
-                    } else {
-                        if (index > 0 && index < getListView().getItems().size()) {
-                            Tasks prevTask = getListView().getItems().get(index - 1);
-                            if (!prevTask.getCompletamento()) {
-                                showSeparator = true;
-                            }
-                        }
-                    }
+                    if (index == 0) showSeparator = true;
+                    else { if (index > 0 && index < getListView().getItems().size()) { Tasks prevTask = getListView().getItems().get(index - 1); if (!prevTask.getCompletamento()) showSeparator = true; } }
                 }
-
                 if (showSeparator) {
-                    HBox separatorBox = new HBox();
-                    separatorBox.setAlignment(Pos.CENTER_LEFT);
-                    separatorBox.setPadding(new Insets(20, 0, 10, 0));
-
-                    Label sepLabel = new Label("COMPLETATE");
-                    sepLabel.setStyle("-fx-text-fill: #f071a7; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 0 10 0 0;");
-
-                    Separator line = new Separator();
-                    HBox.setHgrow(line, Priority.ALWAYS);
-                    line.setStyle("-fx-opacity: 0.3;");
-
+                    HBox separatorBox = new HBox(); separatorBox.setAlignment(Pos.CENTER_LEFT); separatorBox.setPadding(new Insets(20, 0, 10, 0));
+                    Label sepLabel = new Label("COMPLETATE"); sepLabel.setStyle("-fx-text-fill: #f071a7; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 0 10 0 0;");
+                    Separator line = new Separator(); HBox.setHgrow(line, Priority.ALWAYS); line.setStyle("-fx-opacity: 0.3;");
                     separatorBox.getChildren().addAll(sepLabel, line);
                     rootContainer.getChildren().add(separatorBox);
                 }
-
                 rootContainer.getChildren().add(taskContent);
                 setGraphic(rootContainer);
                 setText(null);
-
-                // *** NOTA: Nessun setStyle qui sulla cella (this/super)! ***
             }
         });
     }
