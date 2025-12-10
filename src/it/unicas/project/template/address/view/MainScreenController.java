@@ -83,6 +83,12 @@ public class MainScreenController {
 
     @FXML
     private void initialize() {
+        // --- FIX: RIMUOVE I NUMERI SETTIMANA DAI DATEPICKER ---
+        if (filterDatePicker != null) filterDatePicker.setShowWeekNumbers(false);
+        if (detailDueDatePicker != null) detailDueDatePicker.setShowWeekNumbers(false);
+        // dueDateField viene gestito in setupCreationForm, ma per sicurezza:
+        if (dueDateField != null) dueDateField.setShowWeekNumbers(false);
+
         tasksListHelper = new TasksList(
                 taskListView, gridViewContainer, gridFlowPane,
                 calendarViewContainer, calendarGrid, weekViewContainer, weekViewBox, calendarMonthLabel,
@@ -225,6 +231,9 @@ public class MainScreenController {
 
         // --- PROTEZIONE CAMPO DATA ---
         if (dueDateField != null) {
+            // FIX: Disabilita numeri settimana anche qui
+            dueDateField.setShowWeekNumbers(false);
+
             // 1. Non scrivibile a mano
             dueDateField.setEditable(false);
 

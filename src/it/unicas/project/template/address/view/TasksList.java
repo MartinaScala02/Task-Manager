@@ -277,6 +277,8 @@ public class TasksList {
             else renderDayView();
         }
     }
+
+    // --- GRIGLIA PULITA A 7 COLONNE (LUN-DOM) ---
     private void renderMonthView() {
         calendarGrid.getChildren().clear();
         calendarGrid.getColumnConstraints().clear();
@@ -285,39 +287,38 @@ public class TasksList {
         calendarMonthLabel.setText(currentCalendarDate.getMonth()
                 .getDisplayName(TextStyle.FULL, Locale.ITALIAN).toUpperCase() + " " + currentCalendarDate.getYear());
 
-        // 1. COLONNE (7 colonne uguali)
+        // 1. COLONNE: 7 esatte
         for (int i = 0; i < 7; i++) {
             ColumnConstraints col = new ColumnConstraints();
             col.setPercentWidth(100.0 / 7);
             calendarGrid.getColumnConstraints().add(col);
         }
 
-
-        // Riga Header (Giorni): Altezza fissa piccola (es. 30px) così non ruba spazio
+        // Riga Header
         RowConstraints headerRow = new RowConstraints();
         headerRow.setPrefHeight(30);
-        headerRow.setVgrow(Priority.NEVER); // L'header non deve crescere
+        headerRow.setVgrow(Priority.NEVER);
         calendarGrid.getRowConstraints().add(headerRow);
 
-
+        // Righe calendario
         for (int i = 0; i < 6; i++) {
             RowConstraints row = new RowConstraints();
             row.setVgrow(Priority.ALWAYS);
             calendarGrid.getRowConstraints().add(row);
         }
 
-
+        // Intestazioni (LUN-DOM)
         String[] days = {"LUN", "MAR", "MER", "GIO", "VEN", "SAB", "DOM"};
         for (int i = 0; i < 7; i++) {
             Label l = new Label(days[i]);
             l.setMaxWidth(Double.MAX_VALUE);
             l.setAlignment(Pos.CENTER);
             l.setStyle("-fx-text-fill: #F071A7; -fx-font-weight: bold; -fx-background-color: #1F162A; -fx-padding: 5;");
-            calendarGrid.add(l, i, 0);
+            calendarGrid.add(l, i, 0); // i = colonna (0-6)
         }
 
         LocalDate firstOfMonth = currentCalendarDate.withDayOfMonth(1);
-        int dayOfWeek = firstOfMonth.getDayOfWeek().getValue() - 1;
+        int dayOfWeek = firstOfMonth.getDayOfWeek().getValue() - 1; // 0=Lun, 6=Dom
         int daysInMonth = currentCalendarDate.lengthOfMonth();
         LocalDate today = LocalDate.now();
 
@@ -328,8 +329,6 @@ public class TasksList {
             LocalDate date = currentCalendarDate.withDayOfMonth(day);
 
             BorderPane cell = new BorderPane();
-
-
             String style = "-fx-background-color: #2b2236; -fx-border-color: #3F2E51; -fx-border-width: 0.5;";
             if (date.equals(today)) {
                 style = "-fx-background-color: #362945; -fx-border-color: #F071A7; -fx-border-width: 2;";
@@ -342,15 +341,13 @@ public class TasksList {
             BorderPane.setAlignment(dayNum, Pos.TOP_RIGHT);
             cell.setTop(dayNum);
 
-            // Contenitore Tasks
+            // Task Container
             VBox tasksContainer = new VBox(2);
             tasksContainer.setPadding(new Insets(2));
-
-
             ScrollPane sp = new ScrollPane(tasksContainer);
             sp.setFitToWidth(true);
             sp.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-            sp.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED); //appare solo se serve
+            sp.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
             sp.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-padding: 0;");
 
             for (Tasks t : sortedTasks) {
@@ -360,14 +357,14 @@ public class TasksList {
             }
 
             cell.setCenter(sp);
-            calendarGrid.add(cell, col, row);
+            calendarGrid.add(cell, col, row); // Aggiunge direttamente alla colonna giusta (0-6)
 
             col++;
             if (col > 6) { col = 0; row++; }
         }
     }
 
-   //vista settimanale
+    //vista settimanale
     private void renderWeekView() {
         weekViewBox.getChildren().clear();
         LocalDate startOfWeek = currentCalendarDate.with(DayOfWeek.MONDAY);
