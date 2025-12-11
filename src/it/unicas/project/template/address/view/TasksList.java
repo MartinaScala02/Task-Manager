@@ -565,7 +565,6 @@ public class TasksList {
                     }).start();
                 });
 
-
                 Label priorityBadge = new Label(task.getPriorita() != null ? task.getPriorita().trim() : "");
                 String colore = switch (priorityBadge.getText().toUpperCase()) {
                     case "ALTA" -> "#e74c3c"; case "MEDIA" -> "#f39c12"; default -> "#27ae60";
