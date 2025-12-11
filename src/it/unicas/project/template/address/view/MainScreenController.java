@@ -1,28 +1,30 @@
 package it.unicas.project.template.address.view;
 
 import it.unicas.project.template.address.MainApp;
-import it.unicas.project.template.address.model.Categorie;
-import it.unicas.project.template.address.model.SubTasks;
-import it.unicas.project.template.address.model.Tasks;
-import it.unicas.project.template.address.model.TimerSessions;
-import it.unicas.project.template.address.model.Utenti;
+import it.unicas.project.template.address.model.*;
 import it.unicas.project.template.address.model.dao.DAOException;
+import it.unicas.project.template.address.model.dao.mysql.DAOAllegati;
 import it.unicas.project.template.address.model.dao.mysql.DAOTasks;
 import javafx.animation.TranslateTransition;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.FlowPane;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 import javafx.util.Duration;
 import javafx.util.StringConverter;
+
+import java.awt.Desktop; // IMPORT NECESSARIO PER APRIRE I FILE
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
-import javafx.scene.control.DateCell;
+import java.util.List;
 
 public class MainScreenController {
 
+    // --- CAMPI FXML HEADER E MENU ---
     @FXML private TextField txtSearch;
     @FXML private VBox sideMenu;
     @FXML private Label usernameLabelHeader;
@@ -30,6 +32,7 @@ public class MainScreenController {
     @FXML private ScrollPane gridViewContainer;
     @FXML private FlowPane gridFlowPane;
 
+    // --- VISTE CALENDARIO ---
     @FXML private BorderPane calendarViewContainer;
     @FXML private GridPane calendarGrid;
     @FXML private ScrollPane weekViewContainer;
@@ -37,20 +40,23 @@ public class MainScreenController {
     @FXML private Label calendarMonthLabel;
     @FXML private Label viewLabel;
 
+    // --- FILTRI ---
     @FXML private VBox categoryMenuContainer;
     @FXML private ComboBox<String> filterPriorityCombo;
     @FXML private DatePicker filterDatePicker;
-
     @FXML private ToggleButton btnFilterTodo;
     @FXML private ToggleButton btnFilterDone;
 
+    // --- DETTAGLI TASK (Pannello Destro) ---
     @FXML private VBox rightDetailPanel;
     @FXML private Label detailTitleLabel, detailCategoryLabel;
     @FXML private DatePicker detailDueDatePicker;
     @FXML private TextArea detailDescArea;
     @FXML private ListView<SubTasks> subTaskListView;
     @FXML private TextField newSubTaskField;
+    @FXML private ListView<Allegati> attachmentListView; // Lista allegati nel dettaglio
 
+    // --- TIMER ---
     @FXML private Label timerLabel;
     @FXML private Label timerStatusLabel;
     @FXML private Button btnTimerToggle;
@@ -60,46 +66,47 @@ public class MainScreenController {
     @FXML private ListView<TimerSessions> timerHistoryList;
     @FXML private Label timerTotalLabel;
 
+    // --- CREAZIONE TASK (Form in basso) ---
     @FXML private TextField newTaskField;
     @FXML private TextArea descriptionArea;
     @FXML private ComboBox<Categorie> categoryComboBox;
     @FXML private ComboBox<String> priorityComboBox;
     @FXML private DatePicker dueDateField;
+    @FXML private Button btnAddAttachment; // Pulsante Graffetta
 
+    // --- VARIABILI DI STATO ---
     private MainApp mainApp;
     private boolean isSideMenuOpen = false;
     private TasksList tasksListHelper;
     private TasksInfoPane tasksInfoPane;
     private FiltersPane filtersPane;
 
-    private final String STYLE_COMMON = "-fx-alignment: CENTER_LEFT; -fx-padding: 10 15 10 15; -fx-cursor: hand; -fx-background-radius: 0; -fx-font-size: 13px; ";
-    private final String STYLE_NORMAL = STYLE_COMMON + "-fx-background-color: transparent; -fx-text-fill: #aaaaaa; -fx-border-width: 0;";
-    private final String STYLE_SELECTED = STYLE_COMMON + "-fx-background-color: #2F223D; -fx-text-fill: #F071A7; -fx-font-weight: bold; -fx-border-color: #F071A7; -fx-border-width: 0 0 0 3;";
+    // Variabile per memorizzare il file scelto durante la creazione di un task
+    private File pendingFile = null;
+
+    // --- INIZIALIZZAZIONE ---
 
     public void setMainApp(MainApp mainApp) {
         this.mainApp = mainApp;
-        refreshUserInfo(); // Imposta il nome all'avvio
+        refreshUserInfo();
         if (tasksListHelper != null && MainApp.getCurrentUser() != null) {
             tasksListHelper.loadTasks(MainApp.getCurrentUser().getIdUtente());
         }
     }
 
-    /**
-     * Metodo pubblico per aggiornare l'intestazione utente dall'esterno
-     */
     public void refreshUserInfo() {
         Utenti u = MainApp.getCurrentUser();
-        if (u != null) {
-            usernameLabelHeader.setText(u.getNome());
-        }
+        if (u != null) usernameLabelHeader.setText(u.getNome());
     }
 
     @FXML
     private void initialize() {
+        // Configurazione DatePicker
         if (filterDatePicker != null) filterDatePicker.setShowWeekNumbers(false);
         if (detailDueDatePicker != null) detailDueDatePicker.setShowWeekNumbers(false);
         if (dueDateField != null) dueDateField.setShowWeekNumbers(false);
 
+        // Inizializzazione Helper Liste e Viste
         tasksListHelper = new TasksList(
                 taskListView, gridViewContainer, gridFlowPane,
                 calendarViewContainer, calendarGrid, weekViewContainer, weekViewBox, calendarMonthLabel,
@@ -110,6 +117,7 @@ public class MainScreenController {
             txtSearch.textProperty().addListener((observable, oldValue, newValue) -> tasksListHelper.setFilterKeyword(newValue));
         }
 
+        // Inizializzazione Pannello Dettagli e Timer
         tasksInfoPane = new TasksInfoPane(
                 rightDetailPanel, detailTitleLabel, detailCategoryLabel,
                 detailDueDatePicker, detailDescArea, subTaskListView,
@@ -118,14 +126,45 @@ public class MainScreenController {
                 btnTimerMenu, timerHistoryContainer, timerHistoryList, timerTotalLabel
         );
 
+        // Inizializzazione Filtri
         filtersPane = new FiltersPane(filterPriorityCombo, filterDatePicker,
                 btnFilterTodo, btnFilterDone, categoryMenuContainer,
                 categoryComboBox, tasksListHelper);
 
         setupCreationForm();
-        setupFilterButtonDesign(btnFilterTodo);
-        setupFilterButtonDesign(btnFilterDone);
 
+        // Configurazione Lista Allegati (nel pannello dettagli)
+        if (attachmentListView != null) {
+            attachmentListView.setCellFactory(param -> new ListCell<>() {
+                @Override
+                protected void updateItem(Allegati item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                        setGraphic(null);
+                    } else {
+                        // Icona graffetta unicode + nome file
+                        setText("📎 " + item.getNomeFile());
+                        setStyle("-fx-text-fill: #bd93f9; -fx-cursor: hand; -fx-padding: 5;");
+                        // Tooltip con il percorso completo
+                        setTooltip(new Tooltip(item.getPercorsoFile()));
+                    }
+                }
+            });
+
+            // GESTIONE CLICK PER APERTURA FILE
+            attachmentListView.setOnMouseClicked(e -> {
+                // Controlla doppio click (o click singolo se preferisci, cambia 2 in 1)
+                if(e.getClickCount() == 2) {
+                    Allegati selected = attachmentListView.getSelectionModel().getSelectedItem();
+                    if(selected != null) {
+                        openFile(selected.getPercorsoFile());
+                    }
+                }
+            });
+        }
+
+        // Gestione click sulla lista principale dei task
         taskListView.setOnMouseClicked(event -> {
             if (event.getClickCount() == 2) {
                 Tasks sel = taskListView.getSelectionModel().getSelectedItem();
@@ -134,62 +173,104 @@ public class MainScreenController {
         });
     }
 
-    @FXML private void handleToggleTimerMenu() { if (tasksInfoPane != null) tasksInfoPane.toggleHistoryMenu(); }
-    @FXML private void handleTimerToggle() { if (tasksInfoPane != null) tasksInfoPane.toggleTimer(); }
-    @FXML private void handleTimerReset() { if (tasksInfoPane != null) tasksInfoPane.resetTimer(); }
+    // --- METODO PER APRIRE IL FILE COL SISTEMA OPERATIVO ---
+    private void openFile(String path) {
+        if (path == null || path.isEmpty()) return;
+        try {
+            // Poiché nel DB abbiamo salvato il percorso assoluto, usiamo quello direttamente
+            File file = new File(path);
 
-    private void setupFilterButtonDesign(ToggleButton btn) {
-        if (btn == null) return;
-        btn.setStyle(STYLE_NORMAL);
-        btn.selectedProperty().addListener((obs, wasSelected, isSelected) -> {
-            if (isSelected) btn.setStyle(STYLE_SELECTED); else btn.setStyle(STYLE_NORMAL);
-        });
-        btn.hoverProperty().addListener((obs, wasHovered, isHovered) -> {
-            if (!btn.isSelected()) {
-                if (isHovered) btn.setStyle(STYLE_COMMON + "-fx-background-color: #2F223D; -fx-text-fill: white; -fx-border-width: 0;");
-                else btn.setStyle(STYLE_NORMAL);
+            System.out.println("Provo ad aprire: " + file.getAbsolutePath()); // DEBUG
+
+            if (file.exists()) {
+                if (Desktop.isDesktopSupported()) {
+                    Desktop.getDesktop().open(file);
+                } else {
+                    showAlert("Apertura automatica non supportata dal sistema.");
+                }
+            } else {
+                showAlert("File non trovato!\nIl percorso cercato è:\n" + file.getAbsolutePath());
             }
-        });
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            showAlert("Errore apertura file: " + ex.getMessage());
+        }
     }
-
-    @FXML private void showListView() { tasksListHelper.switchView(TasksList.ViewMode.LIST); if (viewLabel != null) viewLabel.setText("Vista: Lista"); }
-    @FXML private void showGridView() { tasksListHelper.switchView(TasksList.ViewMode.GRID); if (viewLabel != null) viewLabel.setText("Vista: Board"); }
-    @FXML private void showCalendarView() { tasksListHelper.switchView(TasksList.ViewMode.CALENDAR); if (viewLabel != null) viewLabel.setText("Vista: Calendario"); }
-
-    @FXML private void prevMonth() { tasksListHelper.calendarBack(); }
-    @FXML private void nextMonth() { tasksListHelper.calendarForward(); }
-    @FXML private void handleCalViewMonth() { tasksListHelper.setCalendarMode(TasksList.CalendarMode.MONTH); }
-    @FXML private void handleCalViewWeek()  { tasksListHelper.setCalendarMode(TasksList.CalendarMode.WEEK); }
-    @FXML private void handleCalViewDay()   { tasksListHelper.setCalendarMode(TasksList.CalendarMode.DAY); }
-
-    private void handleOpenDetail(Tasks t) {
-        String catName = tasksListHelper.getCategoryName(t.getIdCategoria(), categoryComboBox.getItems());
-        tasksInfoPane.openPanel(t, catName);
-    }
-    @FXML private void closeRightPanel() { tasksInfoPane.closePanel(); }
-    @FXML private void handleNewSubTask() { tasksInfoPane.createSubTask(); }
+    // --- LOGICA GESTIONE ALLEGATI (CREAZIONE) ---
 
     @FXML
-    private void handleShowAll() {
-        filtersPane.resetAllFilters();
-        if (txtSearch != null) txtSearch.clear();
-        if (btnFilterTodo != null) btnFilterTodo.setSelected(false);
-        if (btnFilterDone != null) btnFilterDone.setSelected(false);
+    public void handleAddAttachment() {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Seleziona file da allegare");
+        Stage stage = (Stage) btnAddAttachment.getScene().getWindow();
+        File selected = fileChooser.showOpenDialog(stage);
+
+        if (selected != null) {
+            this.pendingFile = selected;
+            // Cambia stile per indicare che c'è un file selezionato
+            btnAddAttachment.setStyle("-fx-background-color: #50fa7b; -fx-text-fill: #282a36; -fx-font-weight: bold;");
+            btnAddAttachment.setTooltip(new Tooltip("File pronto: " + selected.getName()));
+        }
     }
 
-    @FXML
-    private void handleFilterToDo() {
-        if (btnFilterTodo.isSelected()) { btnFilterDone.setSelected(false); filtersPane.setFilterStatus(false); }
-        else { filtersPane.setFilterStatus(null); }
+    private void savePendingFileToDB(Integer taskId) {
+        if (pendingFile == null) return;
+        try {
+            // 1. Ottieni la cartella del progetto in modo sicuro
+            String projectPath = System.getProperty("user.dir");
+
+            // 2. Definisci la cartella attachments
+            // NOTA: Usiamo il costruttore new File(parent, child) che mette la barra da solo!
+            File destDir = new File(projectPath, "attachments");
+
+            // Crea la cartella se non esiste
+            if (!destDir.exists()) {
+                boolean created = destDir.mkdir();
+                if(!created) System.out.println("Impossibile creare cartella attachments");
+            }
+
+            // 3. Costruiamo il file di destinazione in modo SICURO
+            String newFileName = System.currentTimeMillis() + "_" + pendingFile.getName();
+            File destFile = new File(destDir, newFileName);
+
+            // DEBUG: Stampa in console dove sta per salvare
+            System.out.println("Sto salvando il file in: " + destFile.getAbsolutePath());
+
+            // 4. Copia fisica del file
+            Files.copy(pendingFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+            // 5. Inserimento nel DB (Salviamo il percorso ASSOLUTO)
+            Allegati allegato = new Allegati();
+            allegato.setIdTask(taskId);
+            allegato.setNomeFile(pendingFile.getName());
+
+            // Salviamo il percorso completo testato sopra
+            allegato.setPercorsoFile(destFile.getAbsolutePath());
+
+            String ext = "";
+            int i = newFileName.lastIndexOf('.');
+            if (i > 0) ext = newFileName.substring(i+1);
+            allegato.setTipoFile(ext);
+
+            DAOAllegati.getInstance().insert(allegato);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            showAlert("Errore nel salvataggio dell'allegato: " + e.getMessage());
+        }
+    }
+    // Carica allegati nel pannello dettagli
+    private void loadAttachments(Tasks t) {
+        if (attachmentListView == null) return;
+        try {
+            List<Allegati> allegati = DAOAllegati.getInstance().selectByTaskId(t.getIdTask());
+            attachmentListView.getItems().setAll(allegati);
+        } catch (DAOException e) {
+            e.printStackTrace();
+        }
     }
 
-    @FXML
-    private void handleFilterCompleted() {
-        if (btnFilterDone.isSelected()) { btnFilterTodo.setSelected(false); filtersPane.setFilterStatus(true); }
-        else { filtersPane.setFilterStatus(null); }
-    }
-
-    @FXML private void handleStatistics() { mainApp.showBirthdayStatistics(); }
+    // --- CREAZIONE NUOVO TASK ---
 
     @FXML
     private void handleNewTask() {
@@ -222,15 +303,74 @@ public class MainScreenController {
             t.setCompletamento(false);
 
             DAOTasks.getInstance().insert(t);
+
+            if (pendingFile != null && t.getIdTask() != null) {
+                savePendingFileToDB(t.getIdTask());
+            }
+
             tasksListHelper.addTask(t);
+            resetCreationForm();
 
-            newTaskField.clear(); descriptionArea.clear();
-            dueDateField.setValue(null);
-            categoryComboBox.getSelectionModel().clearSelection();
-            priorityComboBox.getSelectionModel().clearSelection();
-
-        } catch (DAOException e) { showAlert("Errore inserimento: " + e.getMessage()); }
+        } catch (DAOException e) {
+            showAlert("Errore inserimento: " + e.getMessage());
+        }
     }
+
+    private void resetCreationForm() {
+        newTaskField.clear();
+        descriptionArea.clear();
+        dueDateField.setValue(null);
+        categoryComboBox.getSelectionModel().clearSelection();
+        priorityComboBox.getSelectionModel().clearSelection();
+
+        pendingFile = null;
+        btnAddAttachment.setStyle("-fx-background-color: #3F2E51; -fx-text-fill: white; -fx-font-size: 18px; -fx-cursor: hand; -fx-background-radius: 4; -fx-border-color: #555; -fx-border-radius: 4;");
+        btnAddAttachment.setTooltip(null);
+    }
+
+    // --- GESTIONE DETTAGLI E VISTE ---
+
+    private void handleOpenDetail(Tasks t) {
+        String catName = tasksListHelper.getCategoryName(t.getIdCategoria(), categoryComboBox.getItems());
+        tasksInfoPane.openPanel(t, catName);
+        loadAttachments(t);
+    }
+
+    @FXML private void closeRightPanel() { tasksInfoPane.closePanel(); }
+
+    @FXML private void showListView() { tasksListHelper.switchView(TasksList.ViewMode.LIST); if (viewLabel != null) viewLabel.setText("Vista: Lista"); }
+    @FXML private void showGridView() { tasksListHelper.switchView(TasksList.ViewMode.GRID); if (viewLabel != null) viewLabel.setText("Vista: Board"); }
+    @FXML private void showCalendarView() { tasksListHelper.switchView(TasksList.ViewMode.CALENDAR); if (viewLabel != null) viewLabel.setText("Vista: Calendario"); }
+
+    @FXML private void prevMonth() { tasksListHelper.calendarBack(); }
+    @FXML private void nextMonth() { tasksListHelper.calendarForward(); }
+    @FXML private void handleCalViewMonth() { tasksListHelper.setCalendarMode(TasksList.CalendarMode.MONTH); }
+    @FXML private void handleCalViewWeek()  { tasksListHelper.setCalendarMode(TasksList.CalendarMode.WEEK); }
+    @FXML private void handleCalViewDay()   { tasksListHelper.setCalendarMode(TasksList.CalendarMode.DAY); }
+
+    // --- FILTRI ---
+
+    @FXML
+    private void handleShowAll() {
+        filtersPane.resetAllFilters();
+        if (txtSearch != null) txtSearch.clear();
+        if (btnFilterTodo != null) btnFilterTodo.setSelected(false);
+        if (btnFilterDone != null) btnFilterDone.setSelected(false);
+    }
+
+    @FXML
+    private void handleFilterToDo() {
+        if (btnFilterTodo.isSelected()) { btnFilterDone.setSelected(false); filtersPane.setFilterStatus(false); }
+        else { filtersPane.setFilterStatus(null); }
+    }
+
+    @FXML
+    private void handleFilterCompleted() {
+        if (btnFilterDone.isSelected()) { btnFilterTodo.setSelected(false); filtersPane.setFilterStatus(true); }
+        else { filtersPane.setFilterStatus(null); }
+    }
+
+    // --- EDIT / DELETE / SUBTASKS / TIMER ---
 
     private void handleEditTask(Tasks t) {
         if (mainApp.showTasksEditDialog(t)) {
@@ -240,6 +380,7 @@ public class MainScreenController {
                 if (tasksInfoPane.isOpen() && tasksInfoPane.getCurrentTask().equals(t)) {
                     String catName = tasksListHelper.getCategoryName(t.getIdCategoria(), categoryComboBox.getItems());
                     tasksInfoPane.openPanel(t, catName);
+                    loadAttachments(t);
                 }
             } catch (Exception e) { e.printStackTrace(); }
         }
@@ -257,10 +398,15 @@ public class MainScreenController {
         }
     }
 
+    @FXML private void handleNewSubTask() { tasksInfoPane.createSubTask(); }
+    @FXML private void handleToggleTimerMenu() { if (tasksInfoPane != null) tasksInfoPane.toggleHistoryMenu(); }
+    @FXML private void handleTimerToggle() { if (tasksInfoPane != null) tasksInfoPane.toggleTimer(); }
+    @FXML private void handleTimerReset() { if (tasksInfoPane != null) tasksInfoPane.resetTimer(); }
+
+    // --- SETUP UI / UTILITY ---
+
     private void setupCreationForm() {
-        if (priorityComboBox != null) {
-            priorityComboBox.getItems().setAll("BASSA", "MEDIA", "ALTA");
-        }
+        if (priorityComboBox != null) priorityComboBox.getItems().setAll("BASSA", "MEDIA", "ALTA");
         categoryComboBox.setConverter(new StringConverter<>() {
             @Override public String toString(Categorie c) { return c==null?"":c.getNomeCategoria(); }
             @Override public Categorie fromString(String s) { return null; }
@@ -280,9 +426,7 @@ public class MainScreenController {
                 }
             });
             dueDateField.valueProperty().addListener((obs, oldVal, newVal) -> {
-                if (newVal != null && newVal.isBefore(LocalDate.now())) {
-                    dueDateField.setValue(null);
-                }
+                if (newVal != null && newVal.isBefore(LocalDate.now())) dueDateField.setValue(null);
             });
         }
     }
@@ -298,6 +442,8 @@ public class MainScreenController {
     @FXML private void handleLogout() { mainApp.showUtentiLogin(); }
     @FXML private void handleExit() { mainApp.handleExit(); }
     @FXML private void handleProfile() { mainApp.showUtentiProfile(MainApp.getCurrentUser()); }
+    @FXML private void handleStatistics() { mainApp.showBirthdayStatistics(); }
 
     private void showAlert(String msg) { new Alert(Alert.AlertType.WARNING, msg).show(); }
+
 }

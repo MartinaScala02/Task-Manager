@@ -13,6 +13,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.collections.transformation.SortedList;
+import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -101,20 +102,13 @@ public class TasksList {
 
         sortedTasks.setComparator((t1, t2) -> {
             if (t1.getCompletamento() != t2.getCompletamento()) return t1.getCompletamento() ? 1 : -1;
-
-            LocalDate d1 = smartParse(t1.getScadenza());
-            LocalDate d2 = smartParse(t2.getScadenza());
-
-            if (d1 == null && d2 == null) return 0;
-            if (d1 == null) return 1;
-            if (d2 == null) return -1;
-
+            String d1 = t1.getScadenza() == null ? "9999-12-31" : t1.getScadenza();
+            String d2 = t2.getScadenza() == null ? "9999-12-31" : t2.getScadenza();
             return d1.compareTo(d2);
         });
 
         taskListView.setItems(sortedTasks);
         setupCellFactory();
-
         if (gridViewContainer != null) {
             gridViewContainer.setVbarPolicy(ScrollPane.ScrollBarPolicy.ALWAYS);
         }
@@ -550,13 +544,27 @@ public class TasksList {
                 task.scadenzaProperty().addListener(scadenzaListener);
                 task.completamentoProperty().addListener(completamentoListener);
 
+
+                // Dentro setupCellFactory -> updateItem...
+
                 CheckBox completeBox = new CheckBox();
                 completeBox.setSelected(task.getCompletamento());
+
                 completeBox.setOnAction(e -> {
-                    task.setCompletamento(completeBox.isSelected());
-                    new Thread(() -> { try { DAOTasks.getInstance().update(task); } catch (Exception ex) { ex.printStackTrace(); } }).start();
-                    reloadTasksFromDB();
+                    boolean nuovoStato = completeBox.isSelected();
+                    task.setCompletamento(nuovoStato);
+
+                    Platform.runLater(() -> {
+                        // Forza la sortedList a rifare l'ordinamento dopo 1 frame
+                        tasks.set(tasks.indexOf(task), task);
+                    });
+
+                    new Thread(() -> {
+                        try { DAOTasks.getInstance().update(task); }
+                        catch (Exception ex) { ex.printStackTrace(); }
+                    }).start();
                 });
+
 
                 Label priorityBadge = new Label(task.getPriorita() != null ? task.getPriorita().trim() : "");
                 String colore = switch (priorityBadge.getText().toUpperCase()) {
@@ -569,24 +577,43 @@ public class TasksList {
                 textLabel.setStyle(task.getCompletamento() ? "-fx-text-fill: #aaa; -fx-strikethrough: true; -fx-font-size: 15px;" : "-fx-text-fill: white; -fx-font-size: 15px;");
                 textLabel.setMaxWidth(Double.MAX_VALUE);
 
+                // Cerca questo blocco dentro setupCellFactory e sostituiscilo con questo:
+
                 Label dateLabel = new Label();
-                if (!task.getCompletamento() && task.getScadenza() != null && !task.getScadenza().isEmpty()) {
+                dateLabel.setText(""); // Partiamo con testo vuoto di default
+
+// Controlliamo che il task non sia completato E che la data esista e non sia la stringa "null"
+                if (!task.getCompletamento() &&
+                        task.getScadenza() != null &&
+                        !task.getScadenza().isEmpty() &&
+                        !task.getScadenza().equalsIgnoreCase("null")) {
+
                     try {
                         LocalDate scad = smartParse(task.getScadenza());
                         if (scad != null) {
                             LocalDate oggi = LocalDate.now();
-                            if (scad.isBefore(oggi)) { dateLabel.setText("⌛ SCADUTA"); dateLabel.setStyle("-fx-text-fill: #FF5555; -fx-font-weight: bold; -fx-font-size: 12px;"); }
-                            else if (scad.isEqual(oggi)) { dateLabel.setText("🔥 OGGI"); dateLabel.setStyle("-fx-text-fill: #FFB86C; -fx-font-weight: bold; -fx-font-size: 12px;"); }
-                            else if (scad.isEqual(oggi.plusDays(1))) { dateLabel.setText("⏳ DOMANI"); dateLabel.setStyle("-fx-text-fill: #8BE9FD; -fx-font-weight: bold; -fx-font-size: 12px;"); }
+                            if (scad.isBefore(oggi)) {
+                                dateLabel.setText("⌛ SCADUTA");
+                                dateLabel.setStyle("-fx-text-fill: #FF5555; -fx-font-weight: bold; -fx-font-size: 12px;");
+                            }
+                            else if (scad.isEqual(oggi)) {
+                                dateLabel.setText("🔥 OGGI");
+                                dateLabel.setStyle("-fx-text-fill: #FFB86C; -fx-font-weight: bold; -fx-font-size: 12px;");
+                            }
+                            else if (scad.isEqual(oggi.plusDays(1))) {
+                                dateLabel.setText("⏳ DOMANI");
+                                dateLabel.setStyle("-fx-text-fill: #8BE9FD; -fx-font-weight: bold; -fx-font-size: 12px;");
+                            }
                             else {
                                 dateLabel.setText("📅 " + DateUtil.format(scad));
                                 dateLabel.setStyle("-fx-text-fill: #bd93f9; -fx-font-size: 10px;");
                             }
-                        } else {
-                            dateLabel.setText("📅 " + task.getScadenza());
-                            dateLabel.setStyle("-fx-text-fill: #bd93f9; -fx-font-size: 10px;");
                         }
-                    } catch (Exception e) {}
+                        // Se scad è null (parsing fallito), non facciamo nulla (il testo resta vuoto)
+                    } catch (Exception e) {
+                        // In caso di errore, non mostriamo nulla invece di mostrare errori strani
+                        dateLabel.setText("");
+                    }
                 }
                 dateLabel.setMinWidth(Region.USE_PREF_SIZE);
 
@@ -624,4 +651,6 @@ public class TasksList {
             }
         });
     }
+
+
 }
