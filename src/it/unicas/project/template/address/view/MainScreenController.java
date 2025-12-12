@@ -14,13 +14,10 @@ import javafx.stage.Stage;
 import javafx.util.Duration;
 import javafx.util.StringConverter;
 
-import java.awt.Desktop; // IMPORT NECESSARIO PER APRIRE I FILE
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
-import java.util.List;
 
 public class MainScreenController {
 
@@ -54,7 +51,7 @@ public class MainScreenController {
     @FXML private TextArea detailDescArea;
     @FXML private ListView<SubTasks> subTaskListView;
     @FXML private TextField newSubTaskField;
-    @FXML private ListView<Allegati> attachmentListView; // Lista allegati nel dettaglio
+    @FXML private ListView<Allegati> attachmentListView; // Iniettata qui, ma passata all'InfoPane
 
     // --- TIMER ---
     @FXML private Label timerLabel;
@@ -118,10 +115,12 @@ public class MainScreenController {
         }
 
         // Inizializzazione Pannello Dettagli e Timer
+        // NOTA: Passiamo attachmentListView qui!
         tasksInfoPane = new TasksInfoPane(
                 rightDetailPanel, detailTitleLabel, detailCategoryLabel,
                 detailDueDatePicker, detailDescArea, subTaskListView,
                 newSubTaskField, taskListView,
+                attachmentListView, // <--- LISTA ALLEGATI PASSATA ALL'HELPER
                 timerLabel, timerStatusLabel, btnTimerToggle, btnTimerReset,
                 btnTimerMenu, timerHistoryContainer, timerHistoryList, timerTotalLabel
         );
@@ -133,38 +132,8 @@ public class MainScreenController {
 
         setupCreationForm();
 
-        // Configurazione Lista Allegati (nel pannello dettagli)
-        if (attachmentListView != null) {
-            attachmentListView.setCellFactory(param -> new ListCell<>() {
-                @Override
-                protected void updateItem(Allegati item, boolean empty) {
-                    super.updateItem(item, empty);
-                    if (empty || item == null) {
-                        setText(null);
-                        setGraphic(null);
-                    } else {
-                        // Icona graffetta unicode + nome file
-                        setText("📎 " + item.getNomeFile());
-                        setStyle("-fx-text-fill: #bd93f9; -fx-cursor: hand; -fx-padding: 5;");
-                        // Tooltip con il percorso completo
-                        setTooltip(new Tooltip(item.getPercorsoFile()));
-                    }
-                }
-            });
-
-            // GESTIONE CLICK PER APERTURA FILE
-            attachmentListView.setOnMouseClicked(e -> {
-                // Controlla doppio click (o click singolo se preferisci, cambia 2 in 1)
-                if(e.getClickCount() == 2) {
-                    Allegati selected = attachmentListView.getSelectionModel().getSelectedItem();
-                    if(selected != null) {
-                        openFile(selected.getPercorsoFile());
-                    }
-                }
-            });
-        }
-
-        // Gestione click sulla lista principale dei task
+        // Configurazione Lista Allegati: RIMOSSA DA QUI (Spostata in TasksInfoPane)
+        // Gestione Click Lista Task
         taskListView.setOnMouseClicked(event -> {
             if (event.getClickCount() == 2) {
                 Tasks sel = taskListView.getSelectionModel().getSelectedItem();
@@ -173,30 +142,8 @@ public class MainScreenController {
         });
     }
 
-    // --- METODO PER APRIRE IL FILE COL SISTEMA OPERATIVO ---
-    private void openFile(String path) {
-        if (path == null || path.isEmpty()) return;
-        try {
-            // Poiché nel DB abbiamo salvato il percorso assoluto, usiamo quello direttamente
-            File file = new File(path);
-
-            System.out.println("Provo ad aprire: " + file.getAbsolutePath()); // DEBUG
-
-            if (file.exists()) {
-                if (Desktop.isDesktopSupported()) {
-                    Desktop.getDesktop().open(file);
-                } else {
-                    showAlert("Apertura automatica non supportata dal sistema.");
-                }
-            } else {
-                showAlert("File non trovato!\nIl percorso cercato è:\n" + file.getAbsolutePath());
-            }
-        } catch (IOException ex) {
-            ex.printStackTrace();
-            showAlert("Errore apertura file: " + ex.getMessage());
-        }
-    }
-    // --- LOGICA GESTIONE ALLEGATI (CREAZIONE) ---
+    // --- LOGICA GESTIONE ALLEGATI (SOLO CREAZIONE) ---
+    // La logica di visualizzazione/apertura è stata spostata in TasksInfoPane
 
     @FXML
     public void handleAddAttachment() {
@@ -207,7 +154,6 @@ public class MainScreenController {
 
         if (selected != null) {
             this.pendingFile = selected;
-            // Cambia stile per indicare che c'è un file selezionato
             btnAddAttachment.setStyle("-fx-background-color: #50fa7b; -fx-text-fill: #282a36; -fx-font-weight: bold;");
             btnAddAttachment.setTooltip(new Tooltip("File pronto: " + selected.getName()));
         }
@@ -216,35 +162,24 @@ public class MainScreenController {
     private void savePendingFileToDB(Integer taskId) {
         if (pendingFile == null) return;
         try {
-            // 1. Ottieni la cartella del progetto in modo sicuro
             String projectPath = System.getProperty("user.dir");
-
-            // 2. Definisci la cartella attachments
-            // NOTA: Usiamo il costruttore new File(parent, child) che mette la barra da solo!
             File destDir = new File(projectPath, "attachments");
 
-            // Crea la cartella se non esiste
             if (!destDir.exists()) {
                 boolean created = destDir.mkdir();
                 if(!created) System.out.println("Impossibile creare cartella attachments");
             }
 
-            // 3. Costruiamo il file di destinazione in modo SICURO
             String newFileName = System.currentTimeMillis() + "_" + pendingFile.getName();
             File destFile = new File(destDir, newFileName);
 
-            // DEBUG: Stampa in console dove sta per salvare
             System.out.println("Sto salvando il file in: " + destFile.getAbsolutePath());
 
-            // 4. Copia fisica del file
             Files.copy(pendingFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 
-            // 5. Inserimento nel DB (Salviamo il percorso ASSOLUTO)
             Allegati allegato = new Allegati();
             allegato.setIdTask(taskId);
             allegato.setNomeFile(pendingFile.getName());
-
-            // Salviamo il percorso completo testato sopra
             allegato.setPercorsoFile(destFile.getAbsolutePath());
 
             String ext = "";
@@ -257,16 +192,6 @@ public class MainScreenController {
         } catch (Exception e) {
             e.printStackTrace();
             showAlert("Errore nel salvataggio dell'allegato: " + e.getMessage());
-        }
-    }
-    // Carica allegati nel pannello dettagli
-    private void loadAttachments(Tasks t) {
-        if (attachmentListView == null) return;
-        try {
-            List<Allegati> allegati = DAOAllegati.getInstance().selectByTaskId(t.getIdTask());
-            attachmentListView.getItems().setAll(allegati);
-        } catch (DAOException e) {
-            e.printStackTrace();
         }
     }
 
@@ -333,7 +258,7 @@ public class MainScreenController {
     private void handleOpenDetail(Tasks t) {
         String catName = tasksListHelper.getCategoryName(t.getIdCategoria(), categoryComboBox.getItems());
         tasksInfoPane.openPanel(t, catName);
-        loadAttachments(t);
+        // loadAttachments è stato rimosso: lo fa l'InfoPane
     }
 
     @FXML private void closeRightPanel() { tasksInfoPane.closePanel(); }
@@ -379,8 +304,7 @@ public class MainScreenController {
                 tasksListHelper.updateTaskInList(t);
                 if (tasksInfoPane.isOpen() && tasksInfoPane.getCurrentTask().equals(t)) {
                     String catName = tasksListHelper.getCategoryName(t.getIdCategoria(), categoryComboBox.getItems());
-                    tasksInfoPane.openPanel(t, catName);
-                    loadAttachments(t);
+                    tasksInfoPane.openPanel(t, catName); // Ricarica tutto (inclusi allegati)
                 }
             } catch (Exception e) { e.printStackTrace(); }
         }
@@ -442,8 +366,7 @@ public class MainScreenController {
     @FXML private void handleLogout() { mainApp.showUtentiLogin(); }
     @FXML private void handleExit() { mainApp.handleExit(); }
     @FXML private void handleProfile() { mainApp.showUtentiProfile(MainApp.getCurrentUser()); }
-    @FXML private void handleStatistics() { mainApp.showBirthdayStatistics(); }
+    @FXML private void handleStatistics() { mainApp.showTasksStatistics(MainApp.getCurrentUser().getIdUtente()); }
 
     private void showAlert(String msg) { new Alert(Alert.AlertType.WARNING, msg).show(); }
-
 }

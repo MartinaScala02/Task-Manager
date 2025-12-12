@@ -1,13 +1,14 @@
 package it.unicas.project.template.address.view;
 
+import it.unicas.project.template.address.model.Allegati; // IMPORT NUOVO
 import it.unicas.project.template.address.model.SubTasks;
 import it.unicas.project.template.address.model.Tasks;
 import it.unicas.project.template.address.model.TimerSessions;
 import it.unicas.project.template.address.model.dao.DAO;
 import it.unicas.project.template.address.model.dao.DAOException;
+import it.unicas.project.template.address.model.dao.mysql.DAOAllegati; // IMPORT NUOVO
 import it.unicas.project.template.address.model.dao.mysql.DAOSubTasks;
 import it.unicas.project.template.address.model.dao.mysql.DAOTimerSessions;
-// IMPORT NECESSARIO
 import it.unicas.project.template.address.util.DateUtil;
 
 import javafx.animation.KeyFrame;
@@ -20,8 +21,12 @@ import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.layout.Priority;
 import javafx.util.Duration;
 
+import java.awt.Desktop; // Per aprire i file
+import java.io.File;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -40,6 +45,9 @@ public class TasksInfoPane {
     private final TextField newSubTaskField;
     private final ListView<Tasks> mainListView;
 
+    // NUOVO: Lista Allegati
+    private final ListView<Allegati> attachmentListView;
+
     // --- TIMER UI ---
     private final Label timerLabel;
     private final Label timerStatusLabel;
@@ -52,7 +60,7 @@ public class TasksInfoPane {
     private final ListView<TimerSessions> timerHistoryList;
     private final Label timerTotalLabel;
 
-    // --- LOGICA TIMER ---
+    // --- LOGICA INTERNA ---
     private Timeline timeline;
     private int secondsElapsed = 0;
     private boolean isTimerRunning = false;
@@ -63,10 +71,12 @@ public class TasksInfoPane {
     private volatile int currentDbSessionId = -1;
     private LocalDateTime startLocalTime;
 
+    // --- COSTRUTTORE AGGIORNATO ---
     public TasksInfoPane(VBox rightDetailPanel, Label detailTitleLabel, Label detailCategoryLabel,
                          DatePicker detailDueDatePicker, TextArea detailDescArea,
                          ListView<SubTasks> subTaskListView, TextField newSubTaskField,
                          ListView<Tasks> mainListView,
+                         ListView<Allegati> attachmentListView, // <--- Parametro Aggiunto
                          Label timerLabel, Label timerStatusLabel, Button btnTimerToggle, Button btnTimerReset,
                          Button btnTimerMenu, VBox timerHistoryContainer,
                          ListView<TimerSessions> timerHistoryList, Label timerTotalLabel) {
@@ -79,6 +89,8 @@ public class TasksInfoPane {
         this.subTaskListView = subTaskListView;
         this.newSubTaskField = newSubTaskField;
         this.mainListView = mainListView;
+        this.attachmentListView = attachmentListView; // Assegnazione
+
         this.timerLabel = timerLabel;
         this.timerStatusLabel = timerStatusLabel;
         this.btnTimerToggle = btnTimerToggle;
@@ -113,8 +125,89 @@ public class TasksInfoPane {
             setupHistoryCellFactory();
         }
 
+        // Inizializza la gestione allegati
+        initAttachmentList();
+
         setupTimerLogic();
     }
+
+    // --- GESTIONE ALLEGATI (Spostata qui) ---
+
+    private void initAttachmentList() {
+        if (attachmentListView == null) return;
+
+        // 1. Configurazione Cella (Visualizzazione)
+        attachmentListView.setCellFactory(param -> new ListCell<>() {
+            @Override
+            protected void updateItem(Allegati item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setGraphic(null);
+                    setStyle("-fx-background-color: transparent;");
+                } else {
+                    // Icona graffetta + nome file
+                    setText("📎 " + item.getNomeFile());
+                    setStyle("-fx-text-fill: #bd93f9; -fx-cursor: hand; -fx-padding: 5; -fx-background-color: transparent;");
+                    // Tooltip con percorso completo
+                    setTooltip(new Tooltip(item.getPercorsoFile()));
+                }
+            }
+        });
+
+        // 2. Gestione Click (Apertura File)
+        attachmentListView.setOnMouseClicked(e -> {
+            if (e.getClickCount() == 2) { // Doppio click per aprire
+                Allegati selected = attachmentListView.getSelectionModel().getSelectedItem();
+                if (selected != null) {
+                    openFile(selected.getPercorsoFile());
+                }
+            }
+        });
+    }
+
+    private void loadAttachments(int taskId) {
+        if (attachmentListView == null) return;
+        // Pulisce subito la lista per evitare che si vedano allegati del task precedente
+        attachmentListView.getItems().clear();
+
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return DAOAllegati.getInstance().selectByTaskId(taskId);
+            } catch (DAOException e) {
+                e.printStackTrace();
+                return null;
+            }
+        }).thenAccept(list -> {
+            if (list != null) {
+                Platform.runLater(() -> attachmentListView.getItems().setAll(list));
+            }
+        });
+    }
+
+    private void openFile(String path) {
+        if (path == null || path.isEmpty()) return;
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                File file = new File(path);
+                if (file.exists()) {
+                    if (Desktop.isDesktopSupported()) {
+                        Desktop.getDesktop().open(file);
+                    } else {
+                        Platform.runLater(() -> new Alert(Alert.AlertType.WARNING, "Apertura non supportata dal sistema.").show());
+                    }
+                } else {
+                    Platform.runLater(() -> new Alert(Alert.AlertType.ERROR, "File non trovato:\n" + path).show());
+                }
+            } catch (IOException ex) {
+                ex.printStackTrace();
+                Platform.runLater(() -> new Alert(Alert.AlertType.ERROR, "Errore apertura file: " + ex.getMessage()).show());
+            }
+        });
+    }
+
+    // --- LOGICA TIMER ---
 
     private void setupTimerLogic() {
         timeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
@@ -161,10 +254,7 @@ public class TasksInfoPane {
                 currentDbSessionId = session.getIdSession();
             } catch (DAOException e) {
                 e.printStackTrace();
-                Platform.runLater(() -> {
-                    Alert a = new Alert(Alert.AlertType.ERROR, "Errore Start Timer: " + e.getMessage());
-                    a.show();
-                });
+                Platform.runLater(() -> new Alert(Alert.AlertType.ERROR, "Errore Start Timer: " + e.getMessage()).show());
             }
         });
     }
@@ -179,15 +269,7 @@ public class TasksInfoPane {
                 if (idDaChiudere > 0) {
                     DAOTimerSessions.getInstance().stopSession(idDaChiudere, endLocalTime);
                 }
-                TimerSessions filtro = new TimerSessions();
-                filtro.setIdTask(taskId);
-                List<TimerSessions> history = DAOTimerSessions.getInstance().select(filtro);
-                long totale = DAOTimerSessions.getInstance().getSommaDurataPerTask(taskId);
-
-                Platform.runLater(() -> {
-                    if (timerHistoryList != null) timerHistoryList.getItems().setAll(history);
-                    updateTotalTimeLabel(totale);
-                });
+                loadHistory(taskId); // Ricarica lo storico
                 currentDbSessionId = -1;
             } catch (Exception e) {
                 e.printStackTrace();
@@ -201,6 +283,8 @@ public class TasksInfoPane {
         updateTimerDisplay(0);
         if (timerStatusLabel != null) timerStatusLabel.setText("Pronto");
     }
+
+    // --- SUBTASKS ---
 
     public void createSubTask() {
         String titolo = newSubTaskField.getText().trim();
@@ -237,31 +321,58 @@ public class TasksInfoPane {
         });
     }
 
-    // --- FIX DATA QUI SOTTO ---
+    // --- APERTURA PANNELLO (MAIN LOGIC) ---
+
     public void openPanel(Tasks task, String categoryName) {
         this.currentSelectedTask = task;
 
-        if (detailTitleLabel != null) detailTitleLabel.setText(task.getTitolo());
-        if (detailDescArea != null) detailDescArea.setText(task.getDescrizione());
-        if (detailCategoryLabel != null) detailCategoryLabel.setText(categoryName);
+        // 1. TITOLO
+        if (detailTitleLabel != null) {
+            detailTitleLabel.setText(task.getTitolo());
+        }
 
-        if (detailDueDatePicker != null) {
-            if (task.getScadenza() != null && !task.getScadenza().isEmpty()) {
-                // USIAMO IL PARSING INTELLIGENTE
-                LocalDate date = null;
-                try {
-                    // Prova standard ISO (yyyy-MM-dd)
-                    date = LocalDate.parse(task.getScadenza());
-                } catch (Exception e) {
-                    // Prova formato Italiano (dd-MM-yyyy) tramite DateUtil
-                    date = DateUtil.parse(task.getScadenza());
-                }
-                detailDueDatePicker.setValue(date);
+        // 2. DESCRIZIONE (Stile placeholder se vuoto)
+        if (detailDescArea != null) {
+            String desc = task.getDescrizione();
+            if (desc == null || desc.trim().isEmpty()) {
+                detailDescArea.setText("Nessuna descrizione aggiunta.");
+                detailDescArea.setStyle("-fx-text-fill: #777777; -fx-font-style: italic; -fx-control-inner-background: transparent; -fx-background-color: transparent;");
             } else {
-                detailDueDatePicker.setValue(null);
+                detailDescArea.setText(desc);
+                detailDescArea.setStyle("-fx-text-fill: white; -fx-font-style: normal; -fx-control-inner-background: transparent; -fx-background-color: transparent;");
             }
         }
 
+        // 3. CATEGORIA (Stile placeholder se vuoto)
+        if (detailCategoryLabel != null) {
+            if (categoryName == null || categoryName.trim().isEmpty()) {
+                detailCategoryLabel.setText("Nessuna categoria");
+                detailCategoryLabel.setStyle("-fx-text-fill: #666666; -fx-font-style: italic; -fx-font-size: 11px;");
+            } else {
+                detailCategoryLabel.setText(categoryName.toUpperCase());
+                detailCategoryLabel.setStyle("-fx-text-fill: #bd93f9; -fx-font-weight: bold; -fx-font-style: normal; -fx-font-size: 11px;");
+            }
+        }
+
+        // 4. DATA SCADENZA (Stile placeholder se null)
+        if (detailDueDatePicker != null) {
+            detailDueDatePicker.setPromptText("Nessuna scadenza"); // Testo di default
+            if (task.getScadenza() != null && !task.getScadenza().isEmpty()) {
+                LocalDate date = null;
+                try {
+                    date = LocalDate.parse(task.getScadenza());
+                } catch (Exception e) {
+                    date = DateUtil.parse(task.getScadenza());
+                }
+                detailDueDatePicker.setValue(date);
+                detailDueDatePicker.setStyle("-fx-opacity: 1;");
+            } else {
+                detailDueDatePicker.setValue(null);
+                detailDueDatePicker.setStyle("-fx-opacity: 0.7;");
+            }
+        }
+
+        // 5. RESET STATO
         resetTimer();
         isTimerRunning = false;
         if(timeline != null) timeline.stop();
@@ -271,15 +382,19 @@ public class TasksInfoPane {
         if (timerHistoryList != null) timerHistoryList.getItems().clear();
         if (timerTotalLabel != null) timerTotalLabel.setText("--:--:--");
 
+        // Chiudi menu storico se aperto
         if (timerHistoryContainer != null) {
             timerHistoryContainer.setVisible(false);
             timerHistoryContainer.setManaged(false);
             if(btnTimerMenu!=null) btnTimerMenu.setText("▼");
         }
 
+        // 6. CARICAMENTO DATI ASINCRONO
         refreshSubTasks();
         loadHistory(task.getIdTask());
+        loadAttachments(task.getIdTask()); // <--- Carica gli allegati
 
+        // 7. ANIMAZIONE
         if (!isOpen && rightDetailPanel != null) {
             animatePanel(0);
             isOpen = true;
@@ -304,7 +419,7 @@ public class TasksInfoPane {
 
     public void closePanel() {
         if (isTimerRunning) {
-            toggleTimer();
+            toggleTimer(); // Pausa automatica se si chiude il pannello
         }
 
         if (isOpen && rightDetailPanel != null) {
@@ -317,6 +432,8 @@ public class TasksInfoPane {
             currentSelectedTask = null;
         }
     }
+
+    // --- UI UPDATES & HELPERS ---
 
     private void updateUIState(boolean running) {
         if (timerStatusLabel != null) timerStatusLabel.setText(running ? "In corso..." : "In pausa");
@@ -373,8 +490,7 @@ public class TasksInfoPane {
                     String dateStr = (item.getInizio() != null) ? item.getInizio().format(DateTimeFormatter.ofPattern("dd/MM HH:mm")) : "--/--";
                     Label label = new Label(dateStr + "  ➜  " + item.getDurataFormattata());
                     label.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 11px;");
-
-                    HBox.setHgrow(label, javafx.scene.layout.Priority.ALWAYS);
+                    HBox.setHgrow(label, Priority.ALWAYS);
                     label.setMaxWidth(Double.MAX_VALUE);
 
                     Button delBtn = new Button("×");
@@ -393,8 +509,7 @@ public class TasksInfoPane {
 
     private void deleteSession(TimerSessions item) {
         if (item == null) return;
-
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Vuoi davvero eliminare questa sessione?", ButtonType.YES, ButtonType.NO);
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Eliminare sessione?", ButtonType.YES, ButtonType.NO);
         alert.showAndWait();
 
         if (alert.getResult() == ButtonType.YES) {
@@ -402,20 +517,14 @@ public class TasksInfoPane {
             CompletableFuture.runAsync(() -> {
                 try {
                     DAOTimerSessions.getInstance().delete(item);
-                    if (currentSelectedTask != null) {
-                        long nuovoTotale = DAOTimerSessions.getInstance().getSommaDurataPerTask(currentSelectedTask.getIdTask());
-                        Platform.runLater(() -> updateTotalTimeLabel(nuovoTotale));
-                    }
+                    if (currentSelectedTask != null) loadHistory(currentSelectedTask.getIdTask());
                 } catch (DAOException e) {
                     e.printStackTrace();
-                    Platform.runLater(() -> {
-                        timerHistoryList.getItems().add(item);
-                        new Alert(Alert.AlertType.ERROR, "Errore di rete: Impossibile eliminare. La sessione è stata ripristinata.").show();
-                    });
                 }
             });
         }
     }
+
     private void setupSubTaskCellFactory() {
         subTaskListView.setCellFactory(param -> new ListCell<>() {
             @Override
@@ -440,7 +549,7 @@ public class TasksInfoPane {
                     Label label = new Label(item.getTitolo());
                     label.setStyle("-fx-text-fill: white; -fx-font-size: 13px;");
                     if (item.getCompletamento()) label.setStyle("-fx-text-fill: #888; -fx-strikethrough: true; -fx-font-size: 13px;");
-                    HBox.setHgrow(label, javafx.scene.layout.Priority.ALWAYS);
+                    HBox.setHgrow(label, Priority.ALWAYS);
                     label.setMaxWidth(Double.MAX_VALUE);
 
                     Button delBtn = new Button("×");

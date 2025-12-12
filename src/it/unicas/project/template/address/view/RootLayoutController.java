@@ -30,22 +30,7 @@ public class RootLayoutController {
         this.mainApp = mainApp;
     }
 
-    /**
-     * Creates an empty address book.
-     */
-    @FXML
-    private void handleSettings() {
-        DAOMySQLSettings daoMySQLSettings = DAOMySQLSettings.getCurrentDAOMySQLSettings();
-        if (mainApp.showSettingsEditDialog(daoMySQLSettings)){
-            DAOMySQLSettings.setCurrentDAOMySQLSettings(daoMySQLSettings);
-        }
 
-    }
-
-
-    /**
-     * Opens an about dialog.
-     */
     @FXML
     private void handleAbout() {
         Alert alert = new Alert(AlertType.INFORMATION);
@@ -59,18 +44,12 @@ public class RootLayoutController {
     /**
      * Closes the application.
      */
-    @FXML
-    private void handleExit() {
+//    @FXML
+//    private void handleExit() {
+//
+//        mainApp.handleExit();
+//
+//    }
 
-        mainApp.handleExit();
 
-    }
-
-    /**
-     * Opens the birthday statistics.
-     */
-    @FXML
-    private void handleShowBirthdayStatistics() {
-        mainApp.showBirthdayStatistics();
-    }
 }

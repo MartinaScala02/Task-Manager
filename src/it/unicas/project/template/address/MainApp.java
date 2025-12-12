@@ -128,17 +128,7 @@ public class MainApp extends Application {
         }
     }
 
-    public void showColleghiOverview() {
-        try {
-            FXMLLoader loader = new FXMLLoader();
-            loader.setLocation(MainApp.class.getResource("view/ColleghiOverview.fxml"));
-            rootLayout.setCenter(loader.load());
-            ColleghiOverviewController controller = loader.getController();
-            controller.setMainApp(this);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
+
 
     public void showUtentiLogin(){
         try {
@@ -177,31 +167,7 @@ public class MainApp extends Application {
         }
     }
 
-    public boolean showColleghiEditDialog(Utenti colleghi, boolean verifyLen) {
-        try {
-            FXMLLoader loader = new FXMLLoader();
-            loader.setLocation(MainApp.class.getResource("view/ColleghiEditDialog.fxml"));
-            AnchorPane page = (AnchorPane) loader.load();
 
-            Stage dialogStage = new Stage();
-            dialogStage.setTitle("Modifica utente.");
-            dialogStage.initModality(Modality.WINDOW_MODAL);
-            dialogStage.initOwner(primaryStage);
-            Scene scene = new Scene(page);
-            dialogStage.setScene(scene);
-
-            ColleghiEditDialogController controller = loader.getController();
-            controller.setDialogStage(dialogStage, verifyLen);
-            controller.setColleghi(colleghi);
-            dialogStage.getIcons().add(new Image("file:resources/images/edit.png"));
-            dialogStage.showAndWait();
-
-            return controller.isOkClicked();
-        } catch (IOException e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
 
     public boolean showUtentiEditDialog(Utenti user) {
         try {
@@ -266,25 +232,7 @@ public class MainApp extends Application {
         }
     }
 
-    public void showBirthdayStatistics() {
-        try {
-            FXMLLoader loader = new FXMLLoader();
-            loader.setLocation(MainApp.class.getResource("view/BirthdayStatistics.fxml"));
-            Stage dialogStage = new Stage();
-            dialogStage.setTitle("Birthday Statistics");
-            dialogStage.initModality(Modality.WINDOW_MODAL);
-            dialogStage.initOwner(primaryStage);
 
-            dialogStage.setScene(new Scene(loader.load()));
-
-            BirthdayStatisticsController controller = loader.getController();
-            controller.setColleghiData(colleghiData);
-            dialogStage.getIcons().add(new Image("file:resources/images/calendar.png"));
-            dialogStage.show();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 
     public void showMainScreen() {
         try {
@@ -373,6 +321,44 @@ public class MainApp extends Application {
         @Override
         public void handle(WindowEvent windowEvent) {
             windowEvent.consume();
+        }
+    }
+
+    public void showTasksStatistics(int idUtente) {
+        try {
+            // 1. Carica il file FXML
+            FXMLLoader loader = new FXMLLoader();
+            loader.setLocation(MainApp.class.getResource("view/TasksStatistics.fxml"));
+
+            // Assicurati che il tipo di root corrisponda a quello del tuo FXML
+            Scene scene = new Scene(loader.load());
+
+            // 2. Configura il nuovo Stage
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("Statistiche Task Utente");
+            dialogStage.initModality(Modality.WINDOW_MODAL);
+            // Assicurati che primaryStage sia l'owner
+            if (primaryStage != null) {
+                dialogStage.initOwner(primaryStage);
+            }
+
+            // 3. Imposta la Scene e l'icona (opzionale)
+            dialogStage.setScene(scene);
+            // Puoi usare un'icona specifica per le statistiche se ne hai una
+            dialogStage.getIcons().add(new Image("file:resources/images/statistics.png"));
+
+            // 4. Ottieni il controller e CARICA I DATI
+            TasksStatisticsController controller = loader.getController();
+            // Chiama il metodo che popola i grafici usando l'ID utente
+            controller.loadStatistics(idUtente);
+
+            // 5. Mostra la finestra
+            dialogStage.show();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            // Implementa una gestione degli errori più amichevole
+            // showAlert("Errore", "Impossibile caricare la finestra delle statistiche.");
         }
     }
 }

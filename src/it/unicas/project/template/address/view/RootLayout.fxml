@@ -8,21 +8,6 @@
     <top>
         <MenuBar BorderPane.alignment="CENTER">
             <menus>
-                <Menu mnemonicParsing="false" text="Main">
-                    <items>
-                        <MenuItem mnemonicParsing="false" onAction="#handleSettings" text="Settings...">
-                            <accelerator>
-                                <KeyCodeCombination alt="UP" code="N" control="DOWN" meta="UP" shift="UP" shortcut="UP" />
-                            </accelerator>
-                        </MenuItem>
-                        <MenuItem mnemonicParsing="false" onAction="#handleExit" text="Exit" />
-                    </items>
-                </Menu>
-                <Menu mnemonicParsing="false" text="Statistics">
-                    <items>
-                        <MenuItem mnemonicParsing="false" onAction="#handleShowBirthdayStatistics" text="Show Statistics" />
-                    </items>
-                </Menu>
                 <Menu mnemonicParsing="false" text="Help">
                     <items>
                         <MenuItem mnemonicParsing="false" onAction="#handleAbout" text="About" />
