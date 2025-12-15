@@ -459,5 +459,74 @@
 
 }
 
+.page-title {
+    -fx-text-fill: #f071a7;
+    -fx-font-size: 26px;
+    -fx-font-weight: bold;
+}
+
+.stat-card {
+    -fx-background-color: #2f223d;
+    -fx-background-radius: 12;
+    -fx-padding: 15;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 8, 0, 0, 3);
+}
+
+.stat-label {
+    -fx-text-fill: #aaaaaa;
+    -fx-font-size: 13px;
+}
+
+.chart-card {
+    -fx-background-color: #2f223d;
+    -fx-background-radius: 12;
+    -fx-padding: 10;
+}
+
+/* --- FIX PER I GRAFICI (PieChart e BarChart) --- */
+
+/* 1. Sfondo del grafico trasparente */
+.chart {
+    -fx-background-color: transparent;
+}
+
+/* 2. Sfondo del contenuto del grafico (l'area delle barre/torta) */
+.chart-content {
+    -fx-background-color: transparent;
+}
+
+/* 3. CRUCIALE: Rende lo sfondo della legenda trasparente */
+.chart-legend {
+    -fx-background-color: transparent;
+    -fx-padding: 10px;
+}
+
+/* 4. Colore del testo degli elementi della legenda */
+.chart-legend-item {
+    -fx-text-fill: white; /* Forza il testo bianco */
+}
+
+/* 5. Colore dei simbolini nella legenda */
+.chart-legend-item-symbol {
+    -fx-background-radius: 4px;
+}
+
+/* 6. Titolo del grafico */
+.chart-title {
+    -fx-text-fill: white;
+    -fx-font-size: 1.4em;
+    -fx-font-weight: bold;
+}
+
+
+
+/* Rimuove lo sfondo alternato delle righe nel grafico a barre */
+.chart-alternative-column-fill, .chart-alternative-row-fill {
+    -fx-fill: transparent;
+    -fx-stroke: transparent;
+}
+.chart-vertical-grid-lines, .chart-horizontal-grid-lines {
+    -fx-stroke: rgba(255, 255, 255, 0.1); /* Linee griglia molto tenui */
+}
 
 

@@ -13,6 +13,7 @@
 <?import javafx.scene.control.TitledPane?>
 <?import javafx.scene.control.ToggleButton?>
 <?import javafx.scene.control.ToggleGroup?>
+<?import javafx.scene.control.Tooltip?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.FlowPane?>
 <?import javafx.scene.layout.GridPane?>
@@ -20,7 +21,10 @@
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
+<?import javafx.scene.shape.Circle?>
+<?import javafx.scene.shape.SVGPath?>
 <?import javafx.scene.text.Font?>
+<?import javafx.geometry.Insets?>
 
 <StackPane stylesheets="@DarkTheme.css" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="it.unicas.project.template.address.view.MainScreenController">
 
@@ -38,6 +42,23 @@
                         -fx-font-weight: bold;
                     </style>
                 </Label>
+
+                <Button mnemonicParsing="false" onAction="#handleShowPromemoria" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-background-insets: 0; -fx-padding: 0; -fx-cursor: hand;">
+                    <graphic>
+                        <StackPane>
+                            <SVGPath content="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z" fill="#f071a7" scaleX="1.3" scaleY="1.3" />
+
+                            <Circle fx:id="notificationBadge" fill="WHITE" radius="5.0" stroke="#f071a7" strokeType="OUTSIDE" strokeWidth="1.5" visible="false" StackPane.alignment="TOP_RIGHT">
+                                <StackPane.margin>
+                                    <Insets right="-6.0" top="-2.0" />
+                                </StackPane.margin>
+                            </Circle>
+                        </StackPane>
+                    </graphic>
+                    <tooltip>
+                        <Tooltip text="Scadenze Imminenti" />
+                    </tooltip>
+                </Button>
 
                 <Region HBox.hgrow="ALWAYS" />
 

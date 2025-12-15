@@ -38,7 +38,7 @@ public class TaskEditDialogController {
 
     // ALLEGATI
     @FXML private ListView<Allegati> attachmentListView;
-    @FXML private Button btnAddAttachment;
+    //@FXML private Button btnAddAttachment;
 
     private Stage dialogStage;
     private Tasks task;

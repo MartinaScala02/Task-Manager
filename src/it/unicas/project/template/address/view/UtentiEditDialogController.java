@@ -1,15 +1,12 @@
 package it.unicas.project.template.address.view;
 
 import it.unicas.project.template.address.model.Utenti;
-import it.unicas.project.template.address.util.DateUtil;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
-import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.stage.Stage;
-import it.unicas.project.template.address.MainApp;
 import it.unicas.project.template.address.model.dao.mysql.DAOUtenti;
 import it.unicas.project.template.address.model.dao.DAOException;
 
@@ -31,20 +28,19 @@ public class UtentiEditDialogController {
 
     private Stage dialogStage;
     private Utenti user;
-    private MainApp mainApp;
     private boolean okClicked = false;
     private boolean verifyLen = true;
 
     @FXML
     private void initialize(){
-        // Sincronizza i due campi (testo condiviso)
+        //sincronizza i due campi (testo condiviso)
         pswVisibleField.textProperty().bindBidirectional(PasswordField.textProperty());
 
-        // All'avvio mostra solo il PasswordField
+        //all'avvio mostra solo il PasswordField
         pswVisibleField.setVisible(false);
         pswVisibleField.setManaged(false);
 
-        // Toggle: quando selezionato mostra il TextField, altrimenti mostra il PasswordField
+        //toggle: quando selezionato mostra il TextField, altrimenti mostra il PasswordField
         showpswBtn.selectedProperty().addListener((obs, oldV, newV) -> {
             if (newV) {
                 pswVisibleField.setVisible(true);
@@ -66,23 +62,23 @@ public class UtentiEditDialogController {
     }
     public void setDialogStage(Stage dialogStage) {
         this.dialogStage = dialogStage;
-        this.verifyLen = verifyLen;
-
     }
-    public boolean isOkClicked() {
+
+    public boolean isOkClicked() { //chiamato quando l'utente ha premuto ok
         return okClicked;
     }
 
     @FXML
     private void handleOk() {
         if (isInputValid(verifyLen)) {
+            //copia i valori dai campi di testo all'oggetto user
             user.setNome(nomeField.getText());
             user.setCognome(cognomeField.getText());
             user.setEmail(emailField.getText());
             user.setPsw(PasswordField.getText());
 
             try {
-                DAOUtenti.getInstance().update(user); // salva nel database
+                DAOUtenti.getInstance().update(user); //salva nel database (aggiorna)
             } catch (DAOException e) {
                 Alert alert = new Alert(Alert.AlertType.ERROR);
                 alert.initOwner(dialogStage);
@@ -90,7 +86,7 @@ public class UtentiEditDialogController {
                 alert.setHeaderText("Non è stato possibile salvare le modifiche");
                 alert.setContentText(e.getMessage());
                 alert.showAndWait();
-                return; // esce senza chiudere il dialog
+                return; //esce senza chiudere il dialog
             }
 
             okClicked = true;
@@ -100,13 +96,13 @@ public class UtentiEditDialogController {
 
 
     @FXML
-    private void handleCancel() {
+    private void handleCancel() { //chiude il dialog senza salvare
         dialogStage.close();
     }
 
 
-    private boolean isInputValid(boolean verifyLen) {
-        String errorMessage = "";
+    private boolean isInputValid(boolean verifyLen) { //ritorna true se i campi sono validi
+        String errorMessage = ""; //stringa per accumulare i messaggi di errore
 
         if (nomeField.getText() == null || (verifyLen && nomeField.getText().length() == 0)) {
             errorMessage += "Nome non valido!\n";
@@ -124,10 +120,10 @@ public class UtentiEditDialogController {
         }
 
 
-        if (errorMessage.length() == 0) {
-            return true;
-        } else {
-            // Show the error message.
+        if (errorMessage.length() == 0) { //se errorMessage è vuota, tutti i campi sono validi
+            return true; //non ci sono errori
+        } else { //se ci sono errori, mostra un alert
+
             Alert alert = new Alert(Alert.AlertType.ERROR);
             alert.initOwner(dialogStage);
             alert.setTitle("Campi non validi");
@@ -142,14 +138,14 @@ public class UtentiEditDialogController {
 
 
     public void setUser(Utenti user) {
-        this.user = user;
+        this.user = user; //memorizza l'utente sul quale operare
 
+        //popola i campi di testo con i dati dell'utente
         nomeField.setText(user.getNome());
         cognomeField.setText(user.getCognome());
         emailField.setText(user.getEmail());
         PasswordField.setText(user.getPsw());
 
     }
-
 
 }

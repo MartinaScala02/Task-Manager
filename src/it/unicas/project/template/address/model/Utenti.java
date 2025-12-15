@@ -14,33 +14,36 @@ import javafx.collections.ObservableList;
  */
 public class Utenti {
 
+    //invece che usare i tipi normali (String, int, ecc), uso i Property Wrapper di JavaFX -> permettono di "ascoltare" i cambiamenti delle proprietà (listeners) e possono essere legate a componenti GUI (bindings)
     private StringProperty nome;
     private StringProperty cognome;
-    private StringProperty username;
     private StringProperty email;
     private StringProperty psw;
     private IntegerProperty idUtente;  //wrapper
 
-    //private static String attributoStaticoDiEsempio;
 
     /**
      * Default constructor.
      */
+    // Costruttore vuoto
     public Utenti() {
         this(null, null, null);
     }
 
-    public Utenti(String nome, String cognome /*String username*/, String email, String psw, Integer idColleghi) {
+    //costruttore completo -> inizializza tutte le proprietà
+    public Utenti(String nome, String cognome, String email, String psw, Integer idColleghi) {
         this.nome = new SimpleStringProperty(nome);
         this.cognome = new SimpleStringProperty(cognome);
-        //this.username = new SimpleStringProperty(username);
         this.email = new SimpleStringProperty(email);
         this.psw = new SimpleStringProperty(psw);
-        if (idColleghi != null){
-            this.idUtente = new SimpleIntegerProperty(idColleghi);
-        } else {
-            this.idUtente = null;
-        }
+        this.idUtente = new SimpleIntegerProperty(idColleghi);
+
+        //l'id non può mai essere nul
+//        if (idColleghi != null){
+//            this.idUtente = new SimpleIntegerProperty(idColleghi);
+//        } else {
+//            this.idUtente = null;
+//        }
     }
 
     /**
@@ -50,19 +53,21 @@ public class Utenti {
      * @param cognome
      * @param psw
      */
+
+    //costruttore con dati iniziali -> per testing (creazione rapida di utenti)
     public Utenti(String nome, String cognome, String psw) {
         this.nome = new SimpleStringProperty(nome);
         this.cognome = new SimpleStringProperty(cognome);
-        // Some initial dummy data, just for convenient testing.
-        this.username = new SimpleStringProperty("username");
         this.email = new SimpleStringProperty("email@email.com");
         this.psw = new SimpleStringProperty(psw);
         this.idUtente = null;
     }
 
+    //getter e setter
+
     public Integer getIdUtente(){
         if (idUtente == null){
-            idUtente = new SimpleIntegerProperty(-1);
+            idUtente = new SimpleIntegerProperty(-1); //se l'id è nullo, lo imposto a -1
         }
         return idUtente.get();
     }
@@ -98,18 +103,6 @@ public class Utenti {
         return cognome;
     }
 
-    public String getUsername() {
-        return username.get();
-    }
-
-    public void setUsername(String username) {
-        this.username.set(username);
-    }
-
-    public StringProperty usernameProperty() {
-        return username;
-    }
-
     public String getEmail() {
         return email.get();
     }
@@ -135,41 +128,42 @@ public class Utenti {
     }
 
 
-    public String toString(){
-        return nome.getValue() + ", " + cognome.getValue() + ", " + username.getValue() + ", " + email.getValue() + ", " + psw.getValue() + ", (" + idUtente.getValue() + ")";
+    //serve a stampare l'utente in modo leggibile -> DOMANDA-serve veramente????
+    @Override
+    public String toString(){ //tostring è un metodo ereditato da Object, lo sovrascriviamo per stampare in modo leggibile
+        return nome.getValue() + ", " + cognome.getValue() + ", " + email.getValue() + ", " + psw.getValue() + ", (" + idUtente.getValue() + ")";
     }
 
 
     public static void main(String[] args) {
 
+        Utenti utente = new Utenti(); //creo un nuovo utente vuoto
 
 
-        // https://en.wikipedia.org/wiki/Observer_pattern
-        Utenti collega = new Utenti();
-        collega.setNome("Ciao");
+        utente.setNome("Ciao"); //imposto il nome a "Ciao"
         MyChangeListener myChangeListener = new MyChangeListener();
-        collega.nomeProperty().addListener(myChangeListener);
-        collega.setNome("Mario");
+        utente.nomeProperty().addListener(myChangeListener); //aggiungo un listener alla proprietà nome -> ogni volta che cambia, viene chiamato il metodo changed di MyChangeListener
+        utente.setNome("Mario"); //cambio il nome -> viene stampato il messaggio del listener
 
 
-        collega.pswProperty().addListener(myChangeListener);
+        utente.pswProperty().addListener(myChangeListener); //aggiungo un listener alla proprietà psw
 
-        collega.pswProperty().addListener(
-                (ChangeListener) (o, oldVal, newVal) -> System.out.println("Compleanno property has changed!"));
+        //cambio la password -> viene stampato il messaggio del listener
+        utente.pswProperty().addListener(
+                (ChangeListener) (o, oldVal, newVal) -> System.out.println("La password property è cambiata!"));
 
-        collega.pswProperty().addListener(
-                (o, old, newVal)-> System.out.println("Compleanno property has changed! (Lambda implementation)")
+        utente.pswProperty().addListener(
+                (o, old, newVal)-> System.out.println("La password è cambiata da "+old+" a "+newVal)
         );
 
 
-        collega.setPsw("30-10-1971");
+        utente.setPsw("12345"); //cambio la password
 
 
 
-        // Use Java Collections to create the List.
+
         List<Utenti> list = new ArrayList<>();
 
-        // Now add observability by wrapping it with ObservableList.
         ObservableList<Utenti> observableList = FXCollections.observableList(list);
         observableList.addListener(
                 (ListChangeListener) change -> System.out.println("Detected a change! ")
@@ -183,13 +177,7 @@ public class Utenti {
         );
 
         c1.setNome("Pippo");
-
-        // Changes to the observableList WILL be reported.
-        // This line will print out "Detected a change!"
         observableList.add(c1);
-
-        // Changes to the underlying list will NOT be reported
-        // Nothing will be printed as a result of the next line.
         observableList.add(c2);
 
 

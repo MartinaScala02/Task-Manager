@@ -62,19 +62,16 @@ public class UtentiProfileController {
 
     private void showUserDetails(Utenti user) {
         if (user != null) {
-            // Fill the labels with info from the colleghi object.
+
             nomeLabel.setText(user.getNome());
             cognomeLabel.setText(user.getCognome());
-            // telefonoLabel.setText(colleghi.getTelefono());
             emailLabel.setText(user.getEmail());
-            // compleannoLabel.setText(colleghi.getCompleanno());
+
         } else {
             // Utenti is null, remove all the text.
             nomeLabel.setText("");
             cognomeLabel.setText("");
-            // telefonoLabel.setText("");
             emailLabel.setText("");
-            // compleannoLabel.setText("");
         }
     }
 

@@ -14,25 +14,30 @@ import java.util.logging.Logger;
 public class DAOUtenti implements DAO<Utenti> {
 
     // Singleton Pattern
-    private DAOUtenti() {}
-    private static DAOUtenti dao = null;
-    private static Logger logger = null;
+    private DAOUtenti() {} //costruttore privato->nessuno fuori della classe può creare istanze
+    //static significa che l'istanza è condivisa con tutto il programma
+    private static DAOUtenti dao = null; //unica istanza della classe per tutta l'applicazione
+    private static Logger logger = null; //serve per i messaggi di log -> errori/warnings/info/etc.
 
+    //si controlla se l'istanza dao è già stata creata
     public static DAOUtenti getInstance() {
+        //se no la crea
         if (dao == null) {
             dao = new DAOUtenti();
             logger = Logger.getLogger(DAOUtenti.class.getName());
-        }
+        }//se sì la restituisce
         return dao;
+        //serve per garantire che ci sia una sola istanza della classe DAOUtenti in tutta l'applicazione -> singleton
     }
 
+    //legge dal database gli utenti che corrispondono a certi creiteri (nome, cognome, email, ecc.) e restituisce una lista di Utenti
     @Override
-    public List<Utenti> select(Utenti u) throws DAOException {
-        ArrayList<Utenti> lista = new ArrayList<>();
-        Statement st = null;
+    public List<Utenti> select(Utenti u) throws DAOException { //il metodo select può lanciare un'eccezione di tipo DAOException
+        ArrayList<Utenti> lista = new ArrayList<>(); //serve per contenere i risultati della query di ricerca
+        Statement st = null; //oggetto per eseguire query SQL
 
         try {
-            st = DAOMySQLSettings.getStatement();
+            st = DAOMySQLSettings.getStatement(); //si apre la connessione al database
 
             // 1. Iniziamo con una query base sempre vera
             // "WHERE 1=1" è un trucco SQL per poter aggiungere tutti gli "AND" dopo senza preoccuparsi
@@ -88,7 +93,7 @@ public class DAOUtenti implements DAO<Utenti> {
         } finally {
             DAOMySQLSettings.closeStatement(st);
         }
-        return lista;
+        return lista; //restituisce una lista di utenti che corrispondono ai criteri di ricerca
     }
 
     @Override

@@ -317,6 +317,7 @@ public class MainApp extends Application {
         return showTasksEditDialog(task);
     }
 
+
     class MyEventHandler implements EventHandler<WindowEvent> {
         @Override
         public void handle(WindowEvent windowEvent) {
@@ -359,6 +360,54 @@ public class MainApp extends Application {
             e.printStackTrace();
             // Implementa una gestione degli errori più amichevole
             // showAlert("Errore", "Impossibile caricare la finestra delle statistiche.");
+        }
+    }
+
+
+    // Inserire dentro MainApp.java (assurati di avere gli import necessari: java.util.function.Consumer)
+
+    public void showPromemoria(int idUtente, Runnable onCloseAction, java.util.function.Consumer<Tasks> onTaskRequest) {
+        try {
+            // 1. Carica FXML
+            FXMLLoader loader = new FXMLLoader();
+            loader.setLocation(MainApp.class.getResource("view/Promemoria.fxml"));
+            AnchorPane page = loader.load();
+
+            // 2. Crea Stage
+            Stage dialogStage = new Stage();
+            dialogStage.setTitle("Scadenze Imminenti");
+            dialogStage.initModality(Modality.APPLICATION_MODAL); // Blocca la finestra sotto
+            dialogStage.initOwner(primaryStage);
+            dialogStage.setResizable(false);
+            Scene scene = new Scene(page);
+            dialogStage.setScene(scene);
+
+            // 3. Configura il Controller
+            PromemoriaController controller = loader.getController();
+            controller.setDialogStage(dialogStage);
+
+            // Passa i callback
+            controller.setOnCloseCallback(onCloseAction);
+            controller.setOnTaskSelected(onTaskRequest);
+
+            // Carica dati
+            controller.loadUrgentTasks(idUtente);
+
+            // Gestisci chiusura finestra (X in alto a destra)
+            dialogStage.setOnHidden(e -> {
+                if (onCloseAction != null) onCloseAction.run();
+            });
+
+            // 4. Mostra
+            dialogStage.showAndWait();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Errore");
+            alert.setHeaderText("Impossibile aprire i promemoria");
+            alert.setContentText(e.getMessage());
+            alert.showAndWait();
         }
     }
 }

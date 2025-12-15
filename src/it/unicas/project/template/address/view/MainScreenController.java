@@ -6,6 +6,7 @@ import it.unicas.project.template.address.model.dao.DAOException;
 import it.unicas.project.template.address.model.dao.mysql.DAOAllegati;
 import it.unicas.project.template.address.model.dao.mysql.DAOTasks;
 import javafx.animation.TranslateTransition;
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -18,6 +19,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
+
 
 public class MainScreenController {
 
@@ -88,6 +90,12 @@ public class MainScreenController {
         refreshUserInfo();
         if (tasksListHelper != null && MainApp.getCurrentUser() != null) {
             tasksListHelper.loadTasks(MainApp.getCurrentUser().getIdUtente());
+
+            // AGGIUNGI: Un piccolo delay per dare tempo al DB di caricare, poi controlla
+            new Thread(() -> {
+                try { Thread.sleep(500); } catch (InterruptedException e) {}
+                javafx.application.Platform.runLater(this::checkNotifications);
+            }).start();
         }
     }
 
@@ -140,6 +148,13 @@ public class MainScreenController {
                 if (sel != null) handleOpenDetail(sel);
             }
         });
+
+        if (tasksListHelper != null) {
+            // Questo listener scatta quando carichi dati o aggiungi/rimuovi task
+            tasksListHelper.getTasks().addListener((javafx.collections.ListChangeListener<Tasks>) c -> {
+                checkNotifications();
+            });
+        }
     }
 
     // --- LOGICA GESTIONE ALLEGATI (SOLO CREAZIONE) ---
@@ -298,30 +313,68 @@ public class MainScreenController {
     // --- EDIT / DELETE / SUBTASKS / TIMER ---
 
     private void handleEditTask(Tasks t) {
-        if (mainApp.showTasksEditDialog(t)) {
-            try {
-                DAOTasks.getInstance().update(t);
-                tasksListHelper.updateTaskInList(t);
-                if (tasksInfoPane.isOpen() && tasksInfoPane.getCurrentTask().equals(t)) {
-                    String catName = tasksListHelper.getCategoryName(t.getIdCategoria(), categoryComboBox.getItems());
-                    tasksInfoPane.openPanel(t, catName); // Ricarica tutto (inclusi allegati)
+        // 1. Apri la finestra di dialogo (questo deve avvenire nel thread UI)
+        boolean okClicked = mainApp.showTasksEditDialog(t);
+
+        if (okClicked) {
+            // 2. Esegui l'aggiornamento nel database in un Thread separato
+            new Thread(() -> {
+                try {
+                    // Aggiorna DB
+                    DAOTasks.getInstance().update(t);
+
+                    // 3. Se successo, aggiorna l'interfaccia grafica (UI Thread)
+                    Platform.runLater(() -> {
+                        // Aggiorna la lista principale
+                        tasksListHelper.updateTaskInList(t);
+
+                        // Se il pannello laterale è aperto su questo task, aggiornalo
+                        if (tasksInfoPane.isOpen() && tasksInfoPane.getCurrentTask().equals(t)) {
+                            String catName = tasksListHelper.getCategoryName(t.getIdCategoria(), categoryComboBox.getItems());
+                            tasksInfoPane.openPanel(t, catName);
+                        }
+
+                        // Feedback visivo (opzionale)
+                        System.out.println("Task modificato con successo: " + t.getTitolo());
+                    });
+
+                } catch (DAOException e) {
+                    // Gestione errori DB
+                    Platform.runLater(() -> {
+                        e.printStackTrace();
+                        showAlert("Errore durante la modifica: " + e.getMessage());
+                    });
                 }
-            } catch (Exception e) { e.printStackTrace(); }
+            }).start();
         }
     }
-
     private void handleDeleteTask(Tasks t) {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Eliminare task?", ButtonType.YES, ButtonType.NO);
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Sei sicuro di voler eliminare questo task?", ButtonType.YES, ButtonType.NO);
         alert.showAndWait();
+
         if (alert.getResult() == ButtonType.YES) {
-            try {
-                DAOTasks.getInstance().delete(t);
-                tasksListHelper.removeTask(t);
-                if (tasksInfoPane.getCurrentTask() == t) tasksInfoPane.closePanel();
-            } catch (Exception e) { showAlert("Errore eliminazione: " + e.getMessage()); }
+            new Thread(() -> {
+                try {
+                    // Cancella dal DB
+                    DAOTasks.getInstance().delete(t);
+
+                    // Aggiorna UI
+                    Platform.runLater(() -> {
+                        tasksListHelper.removeTask(t);
+                        // Se stavo visualizzando i dettagli di questo task, chiudi il pannello
+                        if (tasksInfoPane.getCurrentTask() == t) {
+                            tasksInfoPane.closePanel();
+                        }
+                    });
+
+                } catch (DAOException e) {
+                    Platform.runLater(() -> {
+                        showAlert("Impossibile eliminare il task: " + e.getMessage());
+                    });
+                }
+            }).start();
         }
     }
-
     @FXML private void handleNewSubTask() { tasksInfoPane.createSubTask(); }
     @FXML private void handleToggleTimerMenu() { if (tasksInfoPane != null) tasksInfoPane.toggleHistoryMenu(); }
     @FXML private void handleTimerToggle() { if (tasksInfoPane != null) tasksInfoPane.toggleTimer(); }
@@ -369,4 +422,62 @@ public class MainScreenController {
     @FXML private void handleStatistics() { mainApp.showTasksStatistics(MainApp.getCurrentUser().getIdUtente()); }
 
     private void showAlert(String msg) { new Alert(Alert.AlertType.WARNING, msg).show(); }
+
+    @FXML
+    private void handleShowPromemoria() {
+        if (MainApp.getCurrentUser() != null) {
+            mainApp.showPromemoria(
+                    MainApp.getCurrentUser().getIdUtente(),
+
+                    // 1. Azione alla chiusura (Nascondi pallino)
+                    () -> {
+                        if (notificationBadge != null) {
+                            notificationBadge.setVisible(false);
+                        }
+                    },
+
+                    // 2. Azione al doppio click (Apri task)
+                    (selectedTask) -> {
+                        // Seleziona nella lista principale
+                        taskListView.getSelectionModel().select(selectedTask);
+                        taskListView.scrollTo(selectedTask);
+
+                        // Apri il pannello dettagli
+                        handleOpenDetail(selectedTask);
+                    }
+            );
+        } else {
+            showAlert("Devi essere loggato per vedere i promemoria.");
+        }
+    }
+
+    @FXML private javafx.scene.shape.Circle notificationBadge;
+
+    private void checkNotifications() {
+        if (tasksListHelper == null || tasksListHelper.getTasks() == null) return;
+
+        LocalDate today = LocalDate.now();
+        LocalDate tomorrow = today.plusDays(1);
+
+        // Conta quanti task scadono oggi, domani o sono scaduti e NON sono completati
+        boolean hasUrgentTasks = tasksListHelper.getTasks().stream().anyMatch(t -> {
+            if (t.getCompletamento()) return false; // Ignora completati
+            if (t.getScadenza() == null || t.getScadenza().isEmpty()) return false;
+
+            try {
+                LocalDate due = it.unicas.project.template.address.util.DateUtil.parse(t.getScadenza());
+                if (due == null) return false;
+
+                // Urgente se: è scaduto OPPURE scade oggi OPPURE scade domani
+                return !due.isAfter(tomorrow);
+            } catch (Exception e) {
+                return false;
+            }
+        });
+
+        // Mostra o nascondi il pallino
+        if (notificationBadge != null) {
+            notificationBadge.setVisible(hasUrgentTasks);
+        }
+    }
 }
