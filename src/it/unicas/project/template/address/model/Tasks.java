@@ -2,6 +2,14 @@ package it.unicas.project.template.address.model;
 
 import javafx.beans.property.*;
 
+/**
+ * Classe Model che rappresenta un'attività (Task) all'interno del sistema.
+ * <p>
+ * Utilizza i Property Wrapper di JavaFX (es. {@link StringProperty}, {@link IntegerProperty})
+ * per consentire il binding automatico con l'interfaccia grafica (TableView, TextField, ecc.)
+ * e la gestione degli eventi di modifica tramite Listener.
+ * </p>
+ */
 public class Tasks {
 
     private StringProperty titolo;
@@ -17,14 +25,26 @@ public class Tasks {
 
     /**
      * Costruttore di default.
+     * Inizializza un oggetto Tasks con valori nulli.
      */
     public Tasks() {
 
         this(null, null, null, null, null, null, null, null, null);
     }
+
     /**
-     * Costruttore COMPLETO usato dal DAOTasks.
-     * Ordine parametri: titolo, descrizione, scadenza, priorita, data_creazione, completamento, idTask, idUtente, idCategoria
+     * Costruttore completo per inizializzare tutte le proprietà del Task.
+     * Utilizzato principalmente dal DAO quando si recuperano i dati dal database.
+     *
+     * @param titolo         Il titolo del task.
+     * @param descrizione    La descrizione del task.
+     * @param scadenza       La data di scadenza (formato stringa).
+     * @param priorita       Il livello di priorità (es. ALTA, MEDIA, BASSA).
+     * @param data_creazione La data di creazione del task.
+     * @param completamento  Stato del task (true = completato, false = aperto).
+     * @param idTask         ID univoco del task (PK). Se null, viene impostato a -1.
+     * @param idUtente       ID dell'utente proprietario del task (FK).
+     * @param idCategoria    ID della categoria associata (FK). Se null, impostato a -1.
      */
     public Tasks(String titolo, String descrizione, String scadenza, String priorita, String data_creazione, Boolean completamento, Integer idTask, Integer idUtente, Integer idCategoria) {
         this.titolo = new SimpleStringProperty(titolo);
@@ -55,12 +75,19 @@ public class Tasks {
         }
     }
 
-    // Getters e Setters per idCategoria
+    /**
+     * Restituisce l'ID della categoria.
+     * @return L'ID categoria o null se non impostato.
+     */
     public Integer getIdCategoria() {
         if (idCategoria == null) return null;
         return idCategoria.get();
     }
 
+    /**
+     * Imposta l'ID della categoria.
+     * @param idCategoria Il nuovo ID categoria.
+     */
     public void setIdCategoria(Integer idCategoria) {
         if (this.idCategoria == null) {
             this.idCategoria = new SimpleIntegerProperty();
@@ -73,6 +100,10 @@ public class Tasks {
         }
     }
 
+    /**
+     * Restituisce la property dell'ID categoria.
+     * @return L'oggetto IntegerProperty.
+     */
     public IntegerProperty idCategoriaProperty() {
         return idCategoria;
     }
@@ -120,9 +151,22 @@ public class Tasks {
     public void setData_creazione(String data_creazione) { this.data_creazione.set(data_creazione); }
     public StringProperty data_creazioneProperty() { return data_creazione; }
 
-    //per la visualizzazione della durata totale delle sessioni timer
+    /**
+     * Restituisce la stringa formattata della durata totale.
+     * @return Durata in formato "HH:mm:ss".
+     */
     public String getDurataTotaleDisplay() { return durataTotaleDisplay.get(); }
+
+    /**
+     * Imposta la stringa formattata della durata totale.
+     * @param durata La durata come stringa.
+     */
     public void setDurataTotaleDisplay(String durata) { this.durataTotaleDisplay.set(durata); }
+
+    /**
+     * Restituisce la property della durata totale per la visualizzazione.
+     * @return L'oggetto StringProperty.
+     */
     public StringProperty durataTotaleDisplayProperty() { return durataTotaleDisplay; }
 
     @Override

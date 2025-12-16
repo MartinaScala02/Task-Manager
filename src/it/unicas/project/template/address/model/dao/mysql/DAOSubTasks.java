@@ -11,6 +11,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
+/**
+ * Data Access Object (DAO) per la gestione della tabella 'SubTasks'.
+ * <p>
+ * Gestisce la persistenza dei sotto-task (checklist) collegati ai task principali.
+ * Implementa il pattern Singleton per garantire un'unica istanza di accesso.
+ * </p>
+ */
 public class DAOSubTasks implements DAO<SubTasks> {
 
     private DAOSubTasks(){}
@@ -18,6 +25,10 @@ public class DAOSubTasks implements DAO<SubTasks> {
     private static DAOSubTasks dao = null;
     private static Logger logger = null;
 
+    /**
+     * Restituisce l'istanza Singleton del DAO.
+     * @return L'unica istanza di DAOSubTasks.
+     */
     public static DAO getInstance(){
         if (dao == null){
             dao = new DAOSubTasks();
@@ -26,6 +37,17 @@ public class DAOSubTasks implements DAO<SubTasks> {
         return dao;
     }
 
+    /**
+     * Seleziona i sotto-task dal database.
+     * <p>
+     * Se l'oggetto passato ha impostato l'{@code idTask}, la query filtrerà
+     * solo i sotto-task appartenenti a quel task specifico (funzionalità chiave per le checklist).
+     * </p>
+     *
+     * @param s Oggetto SubTasks usato come filtro (solitamente contiene l'idTask padre).
+     * @return Una lista di SubTasks che soddisfano i criteri.
+     * @throws DAOException In caso di errori SQL.
+     */
     @Override
     public List<SubTasks> select(SubTasks s) throws DAOException {
         ArrayList<SubTasks> lista = new ArrayList<>();
@@ -67,6 +89,12 @@ public class DAOSubTasks implements DAO<SubTasks> {
         return lista;
     }
 
+    /**
+     * Elimina un sotto-task dal database.
+     *
+     * @param s Il sotto-task da eliminare (richiesto ID valido).
+     * @throws DAOException Se l'ID è mancante o invalido.
+     */
     @Override
     public void delete(SubTasks s) throws DAOException {
         if (s == null || s.getIdSubTask() == null || s.getIdSubTask() <= 0) {
@@ -79,6 +107,15 @@ public class DAOSubTasks implements DAO<SubTasks> {
         executeUpdate(query);
     }
 
+    /**
+     * Inserisce un nuovo sotto-task nel database.
+     * <p>
+     * Recupera automaticamente la chiave generata (AUTO_INCREMENT) e la imposta nell'oggetto.
+     * </p>
+     *
+     * @param s Il sotto-task da inserire. Deve avere un idTask valido.
+     * @throws DAOException Se i dati sono incompleti o la query fallisce.
+     */
     @Override
     public void insert(SubTasks s) throws DAOException {
         verifyObject(s);
@@ -119,6 +156,12 @@ public class DAOSubTasks implements DAO<SubTasks> {
         }
     }
 
+    /**
+     * Aggiorna un sotto-task esistente.
+     *
+     * @param s Il sotto-task con i dati aggiornati (richiede ID valido).
+     * @throws DAOException Se l'ID è mancante o invalido.
+     */
     @Override
     public void update(SubTasks s) throws DAOException {
         if (s == null || s.getIdSubTask() == null || s.getIdSubTask() <= 0) {
@@ -140,6 +183,13 @@ public class DAOSubTasks implements DAO<SubTasks> {
         executeUpdate(query);
     }
 
+    /**
+     * Verifica la validità dei dati prima dell'inserimento.
+     * Controlla che titolo e idTask siano presenti.
+     *
+     * @param s Il sotto-task da validare.
+     * @throws DAOException Se i dati sono mancanti.
+     */
     private void verifyObject(SubTasks s) throws DAOException {
         if (s == null) throw new DAOException("SubTask è null");
         if (s.getTitolo() == null || s.getTitolo().isEmpty()) {
@@ -150,6 +200,12 @@ public class DAOSubTasks implements DAO<SubTasks> {
         }
     }
 
+    /**
+     * Metodo helper per eseguire query di aggiornamento (INSERT, UPDATE, DELETE).
+     *
+     * @param query La stringa SQL da eseguire.
+     * @throws DAOException In caso di errore SQL.
+     */
     private void executeUpdate(String query) throws DAOException {
         Statement st = null;
         try {

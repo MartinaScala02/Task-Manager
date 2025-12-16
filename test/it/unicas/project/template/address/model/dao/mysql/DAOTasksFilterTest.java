@@ -7,10 +7,35 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 
+/**
+ * Classe di Test JUnit per verificare la Privacy dei dati e i Filtri di ricerca.
+ * <p>
+ * Verifica che:
+ * </p>
+ * <ul>
+ * <li>Un utente veda solo i propri task (Privacy).</li>
+ * <li>I filtri combinati (es. Utente + Priorità, Utente + Completamento) funzionino correttamente.</li>
+ * </ul>
+ */
 public class DAOTasksFilterTest {
 
     private DAOTasks dao = (DAOTasks) DAOTasks.getInstance();
 
+    /**
+     * Test di integrazione per verificare isolamento dati e filtri.
+     * <p>
+     * Esegue i seguenti passaggi:
+     * </p>
+     * <ol>
+     * <li><b>Setup:</b> Inserisce task di test per due utenti diversi (ID 12 e ID 14).</li>
+     * <li><b>Test Privacy:</b> Verifica che cercando i task dell'utente 12 non appaiano quelli dell'utente 14.</li>
+     * <li><b>Test Filtro Priorità:</b> Verifica il recupero del solo task con priorità 'alta' dell'utente 12.</li>
+     * <li><b>Test Filtro Completamento:</b> Verifica il recupero del solo task completato dell'utente 12.</li>
+     * <li><b>Cleanup:</b> Rimuove tutti i task di test creati.</li>
+     * </ol>
+     *
+     * @throws DAOException In caso di errori di database.
+     */
     @Test
     public void testPrivacyEFiltri() throws DAOException {
 
@@ -95,6 +120,10 @@ public class DAOTasksFilterTest {
         }
     }
 
+    /**
+     * Stampa in console i dettagli dei task trovati.
+     * @param lista La lista dei task.
+     */
     private void stampaRisultati(List<Tasks> lista) {
         if (lista.isEmpty()) {
             System.out.println("   [!] Nessun risultato.");
@@ -107,6 +136,12 @@ public class DAOTasksFilterTest {
         }
     }
 
+    /**
+     * Verifica se un ID task specifico è presente nella lista.
+     * @param lista La lista in cui cercare.
+     * @param idDaCercare L'ID del task target.
+     * @return true se presente, false altrimenti.
+     */
     private boolean contieneTask(List<Tasks> lista, int idDaCercare) {
         return lista.stream().anyMatch(t -> t.getIdTask() == idDaCercare);
     }

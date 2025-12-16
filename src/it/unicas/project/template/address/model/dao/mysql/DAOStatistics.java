@@ -8,6 +8,14 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
 
+/**
+ * Data Access Object (DAO) specializzato nella generazione di Statistiche.
+ * <p>
+ * A differenza degli altri DAO, questa classe non gestisce operazioni CRUD su un Model specifico,
+ * ma esegue query di aggregazione (COUNT, SUM, GROUP BY) su più tabelle (Tasks, TimerSessions, Categorie)
+ * per fornire i dati necessari alla visualizzazione di grafici e report.
+ * </p>
+ */
 public class DAOStatistics {
 
     private static DAOStatistics instance = null;
@@ -15,6 +23,10 @@ public class DAOStatistics {
 
     private DAOStatistics() {}
 
+    /**
+     * Restituisce l'unica istanza (Singleton) della classe.
+     * @return L'istanza di DAOStatistics.
+     */
     public static DAOStatistics getInstance() {
         if (instance == null) {
             instance = new DAOStatistics();
@@ -24,7 +36,16 @@ public class DAOStatistics {
     }
 
     /**
-     * 1. Distribuzione dei Task per Priorità (SOLO per l'utente specificato)
+     * Calcola la distribuzione dei Task per Priorità per un determinato utente.
+     * <p>
+     * Esegue una query di raggruppamento (GROUP BY priorità) sulla tabella Tasks.
+     * Utile per alimentare un grafico a torta (PieChart) che mostra quanti task
+     * sono "ALTA", "MEDIA" o "BASSA" priorità.
+     * </p>
+     *
+     * @param idUtente L'ID dell'utente di cui si vogliono le statistiche.
+     * @return Una Mappa dove la chiave è la priorità (String) e il valore è il numero di task (Integer).
+     * @throws DAOException In caso di errore SQL.
      */
     public Map<String, Integer> getTaskCountByPriority(int idUtente) throws DAOException {
         Map<String, Integer> stats = new HashMap<>();
@@ -55,7 +76,22 @@ public class DAOStatistics {
     }
 
     /**
-     * 2. Tempo speso per Categoria (SOLO per l'utente specificato)
+     * Calcola il tempo totale speso per ogni Categoria.
+     * <p>
+     * Questa è una query complessa che coinvolge tre tabelle:
+     * </p>
+     * <ol>
+     * <li><b>TimerSessions:</b> Contiene la durata delle sessioni di lavoro.</li>
+     * <li><b>Tasks:</b> Collega le sessioni alle categorie e agli utenti.</li>
+     * <li><b>Categorie:</b> Contiene i nomi delle categorie (es. "Lavoro", "Studio").</li>
+     * </ol>
+     * <p>
+     * La query somma le durate (SUM) raggruppandole per nome categoria.
+     * </p>
+     *
+     * @param idUtente L'ID dell'utente.
+     * @return Una Mappa dove la chiave è il nome della categoria e il valore è il totale dei secondi (Long).
+     * @throws DAOException In caso di errore SQL.
      */
     public Map<String, Long> getTimeSpentByCategory(int idUtente) throws DAOException {
         Map<String, Long> stats = new HashMap<>();
@@ -90,7 +126,18 @@ public class DAOStatistics {
     }
 
     /**
-     * 3. Task Completati vs Aperti (SOLO per l'utente specificato)
+     * Confronta i Task Completati rispetto a quelli Aperti (Da fare).
+     * <p>
+     * Esegue un conteggio raggruppato per il campo booleano 'completamento'.
+     * </p>
+     *
+     * @param idUtente L'ID dell'utente.
+     * @return Un array di interi di dimensione 2:
+     * <ul>
+     * <li>Indice 0: Numero di Task Aperti (Non completati)</li>
+     * <li>Indice 1: Numero di Task Completati</li>
+     * </ul>
+     * @throws DAOException In caso di errore SQL.
      */
     public int[] getCompletionStats(int idUtente) throws DAOException {
         int[] results = new int[2];

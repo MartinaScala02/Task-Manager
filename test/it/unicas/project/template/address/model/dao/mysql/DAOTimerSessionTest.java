@@ -9,6 +9,13 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+/**
+ * Classe di Test JUnit per verificare il ciclo di vita e i calcoli delle sessioni di Timer.
+ * <p>
+ * Verifica il corretto funzionamento di inserimento (Start), aggiornamento (Stop)
+ * e il calcolo automatico della durata della sessione.
+ * </p>
+ */
 public class DAOTimerSessionTest {
 
     private DAOTimerSessions dao = DAOTimerSessions.getInstance();
@@ -16,6 +23,21 @@ public class DAOTimerSessionTest {
     // Creiamo un formatter per rendere leggibili le date (es. "07-12-2025 10:30:00")
     private DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
 
+    /**
+     * Test del ciclo di vita completo di una sessione di timer.
+     * <p>
+     * Passaggi del test:
+     * </p>
+     * <ol>
+     * <li><b>Preparazione:</b> Crea un oggetto sessione associato a un task esistente.</li>
+     * <li><b>Start:</b> Inserisce la sessione nel DB (dao.insert). Verifica che venga generato un ID.</li>
+     * <li><b>Update (Simulazione Stop):</b> Imposta manualmente orari di inizio e fine per simulare una durata nota (3h 30m 45s).</li>
+     * <li><b>Verifica:</b> Recupera la sessione dal DB e controlla che la durata calcolata corrisponda a 12645 secondi.</li>
+     * <li><b>Cleanup:</b> Elimina la sessione di test.</li>
+     * </ol>
+     *
+     * @throws DAOException In caso di errori SQL.
+     */
     @Test
     public void testLifecycleTimer() throws DAOException {
 

@@ -10,7 +10,15 @@ import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 
 /**
- * Model class for a Utenti.
+ * Classe Model che rappresenta un Utente all'interno del sistema.
+ * <p>
+ * Questa classe utilizza i Property Wrapper di JavaFX (es. {@link StringProperty}, {@link IntegerProperty})
+ * al posto dei tipi primitivi standard. Questo approccio permette di:
+ * </p>
+ * <ul>
+ * <li>Implementare il pattern Observer tramite Listener (per reagire ai cambiamenti dei valori).</li>
+ * <li>Effettuare il binding bidirezionale con i componenti della GUI (es. TableView, TextField).</li>
+ * </ul>
  */
 public class Utenti {
 
@@ -23,13 +31,24 @@ public class Utenti {
 
 
     /**
-     * Default constructor.
+     * Costruttore di default.
+     * Inizializza un oggetto Utenti con valori nulli.
      */
     // Costruttore vuoto
     public Utenti() {
         this(null, null, null);
     }
 
+    /**
+     * Costruttore completo per inizializzare tutte le proprietà dell'utente.
+     * Utilizzato solitamente quando si recuperano i dati dal database.
+     *
+     * @param nome       Il nome dell'utente.
+     * @param cognome    Il cognome dell'utente.
+     * @param email      L'indirizzo email.
+     * @param psw        La password dell'utente.
+     * @param idColleghi L'ID univoco dell'utente (spesso riferito come idColleghi).
+     */
     //costruttore completo -> inizializza tutte le proprietà
     public Utenti(String nome, String cognome, String email, String psw, Integer idColleghi) {
         this.nome = new SimpleStringProperty(nome);
@@ -47,13 +66,14 @@ public class Utenti {
     }
 
     /**
-     * Constructor with some initial data.
+     * Costruttore parziale con dati iniziali.
+     * Utile per il testing rapido o per la creazione di utenti provvisori.
+     * Imposta un'email di default ("email@email.com") e id nullo.
      *
-     * @param nome
-     * @param cognome
-     * @param psw
+     * @param nome    Il nome dell'utente.
+     * @param cognome Il cognome dell'utente.
+     * @param psw     La password dell'utente.
      */
-
     //costruttore con dati iniziali -> per testing (creazione rapida di utenti)
     public Utenti(String nome, String cognome, String psw) {
         this.nome = new SimpleStringProperty(nome);
@@ -65,6 +85,12 @@ public class Utenti {
 
     //getter e setter
 
+    /**
+     * Restituisce l'ID dell'utente.
+     * Se la property idUtente non è stata inizializzata, la crea con valore di default -1.
+     *
+     * @return L'ID dell'utente come Integer.
+     */
     public Integer getIdUtente(){
         if (idUtente == null){
             idUtente = new SimpleIntegerProperty(-1); //se l'id è nullo, lo imposto a -1
@@ -72,6 +98,11 @@ public class Utenti {
         return idUtente.get();
     }
 
+    /**
+     * Imposta l'ID dell'utente.
+     *
+     * @param idUtente Il nuovo ID da impostare.
+     */
     public void setIdUtente(Integer idUtente) {
         if (this.idUtente == null){
             this.idUtente = new SimpleIntegerProperty();
@@ -79,113 +110,111 @@ public class Utenti {
         this.idUtente.set(idUtente);
     }
 
+    /**
+     * Restituisce il nome dell'utente.
+     * @return Il nome.
+     */
     public String getNome() {
         return nome.get();
     }
 
+    /**
+     * Imposta il nome dell'utente.
+     * @param nome Il nuovo nome.
+     */
     public void setNome(String nome) {
         this.nome.set(nome);
     }
 
+    /**
+     * Restituisce la property del nome per il binding JavaFX.
+     * @return L'oggetto StringProperty associato al nome.
+     */
     public StringProperty nomeProperty() {
         return nome;
     }
 
+    /**
+     * Restituisce il cognome dell'utente.
+     * @return Il cognome.
+     */
     public String getCognome() {
         return cognome.get();
     }
 
+    /**
+     * Imposta il cognome dell'utente.
+     * @param cognome Il nuovo cognome.
+     */
     public void setCognome(String cognome) {
         this.cognome.set(cognome);
     }
 
+    /**
+     * Restituisce la property del cognome per il binding JavaFX.
+     * @return L'oggetto StringProperty associato al cognome.
+     */
     public StringProperty cognomeProperty() {
         return cognome;
     }
 
+    /**
+     * Restituisce l'email dell'utente.
+     * @return L'email.
+     */
     public String getEmail() {
         return email.get();
     }
 
+    /**
+     * Imposta l'email dell'utente.
+     * @param email La nuova email.
+     */
     public void setEmail(String email) {
         this.email.set(email);
     }
 
+    /**
+     * Restituisce la property dell'email per il binding JavaFX.
+     * @return L'oggetto StringProperty associato all'email.
+     */
     public StringProperty emailProperty() {
         return email;
     }
 
+    /**
+     * Restituisce la password dell'utente.
+     * @return La password.
+     */
     public String getPsw() {
         return psw.getValue();
     }
 
+    /**
+     * Imposta la password dell'utente.
+     * @param psw La nuova password.
+     */
     public void setPsw(String psw) {
         this.psw.set(psw);
     }
 
+    /**
+     * Restituisce la property della password per il binding JavaFX.
+     * @return L'oggetto StringProperty associato alla password.
+     */
     public StringProperty pswProperty() {
         return psw;
     }
 
-
-    //serve a stampare l'utente in modo leggibile -> DOMANDA-serve veramente????
+    /**
+     * Restituisce una rappresentazione in stringa dell'oggetto Utente.
+     * Utile per il debugging e il logging.
+     *
+     * @return Una stringa contenente i valori delle proprietà dell'utente.
+     */
     @Override
     public String toString(){ //tostring è un metodo ereditato da Object, lo sovrascriviamo per stampare in modo leggibile
         return nome.getValue() + ", " + cognome.getValue() + ", " + email.getValue() + ", " + psw.getValue() + ", (" + idUtente.getValue() + ")";
     }
-
-
-    public static void main(String[] args) {
-
-        Utenti utente = new Utenti(); //creo un nuovo utente vuoto
-
-
-        utente.setNome("Ciao"); //imposto il nome a "Ciao"
-        MyChangeListener myChangeListener = new MyChangeListener();
-        utente.nomeProperty().addListener(myChangeListener); //aggiungo un listener alla proprietà nome -> ogni volta che cambia, viene chiamato il metodo changed di MyChangeListener
-        utente.setNome("Mario"); //cambio il nome -> viene stampato il messaggio del listener
-
-
-        utente.pswProperty().addListener(myChangeListener); //aggiungo un listener alla proprietà psw
-
-        //cambio la password -> viene stampato il messaggio del listener
-        utente.pswProperty().addListener(
-                (ChangeListener) (o, oldVal, newVal) -> System.out.println("La password property è cambiata!"));
-
-        utente.pswProperty().addListener(
-                (o, old, newVal)-> System.out.println("La password è cambiata da "+old+" a "+newVal)
-        );
-
-
-        utente.setPsw("12345"); //cambio la password
-
-
-
-
-        List<Utenti> list = new ArrayList<>();
-
-        ObservableList<Utenti> observableList = FXCollections.observableList(list);
-        observableList.addListener(
-                (ListChangeListener) change -> System.out.println("Detected a change! ")
-        );
-
-        Utenti c1 = new Utenti();
-        Utenti c2 = new Utenti();
-
-        c1.nomeProperty().addListener(
-                (o, old, newValue)->System.out.println("Ciao")
-        );
-
-        c1.setNome("Pippo");
-        observableList.add(c1);
-        observableList.add(c2);
-
-
-        observableList.get(0).setNome("Nuovo valore");
-
-        System.out.println("Size: "+observableList.size());
-
-    }
-
 
 }

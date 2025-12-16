@@ -9,10 +9,25 @@ import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * Classe di Test JUnit per la verifica delle regole di validazione sulle scadenze (Deadline).
+ * <p>
+ * Questa classe controlla che il DAO impedisca correttamente l'inserimento di Task con scadenze
+ * non valide (nel passato) e permetta invece l'inserimento di scadenze future.
+ * </p>
+ */
 public class DAODeadlineTest {
 
     private DAOTasks dao = (DAOTasks) DAOTasks.getInstance();
 
+    /**
+     * Test Negativo: Verifica che il sistema rifiuti una scadenza nel passato.
+     * <p>
+     * <b>Scenario:</b> Si tenta di inserire un task con data di scadenza impostata a "ieri".<br>
+     * <b>Risultato atteso:</b> Il metodo {@code dao.insert()} deve lanciare una {@link DAOException}.
+     * Se l'eccezione non viene lanciata, il test fallisce.
+     * </p>
+     */
     @Test
     public void testValidazioneScadenzaPassata() {
         System.out.println("=== TEST VALIDAZIONE SCADENZA ===");
@@ -45,6 +60,14 @@ public class DAODeadlineTest {
         System.out.println(" TEST PASSATO: Il sistema ha bloccato correttamente la data passata.\n");
     }
 
+    /**
+     * Test Positivo: Verifica che il sistema accetti una scadenza nel futuro.
+     * <p>
+     * <b>Scenario:</b> Si tenta di inserire un task con data di scadenza impostata a "domani".<br>
+     * <b>Risultato atteso:</b> L'inserimento avviene con successo (il task riceve un ID).
+     * Al termine, il task di prova viene eliminato per pulire il database.
+     * </p>
+     */
     @Test
     public void testValidazioneScadenzaFutura() {
         System.out.println("=== TEST SCADENZA FUTURA ===");

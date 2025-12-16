@@ -11,6 +11,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
+/**
+ * Data Access Object (DAO) per la gestione della tabella 'Categorie' su database MySQL.
+ * <p>
+ * Implementa l'interfaccia {@link DAO} e utilizza il pattern Singleton per garantire
+ * un'unica istanza di accesso ai dati.
+ * </p>
+ */
 public class DAOCategorie implements DAO<Categorie> {
 
     private DAOCategorie(){}
@@ -18,6 +25,10 @@ public class DAOCategorie implements DAO<Categorie> {
     private static DAOCategorie dao = null;
     private static Logger logger = null;
 
+    /**
+     * Restituisce l'unica istanza (Singleton) della classe DAOCategorie.
+     * @return L'istanza singleton.
+     */
     public static DAO getInstance(){
         if (dao == null){
             dao = new DAOCategorie();
@@ -26,6 +37,13 @@ public class DAOCategorie implements DAO<Categorie> {
         return dao;
     }
 
+    /**
+     * Esegue una query di selezione sulla tabella Categorie.
+     *
+     * @param c Oggetto Categorie contenente i criteri di filtro (opzionale).
+     * @return Una lista di oggetti {@link Categorie} trovati.
+     * @throws DAOException In caso di errore SQL.
+     */
     @Override
     public List<Categorie> select(Categorie c) throws DAOException {
         ArrayList<Categorie> lista = new ArrayList<>();
@@ -69,6 +87,12 @@ public class DAOCategorie implements DAO<Categorie> {
         return lista;
     }
 
+    /**
+     * Elimina una categoria dal database.
+     *
+     * @param c La categoria da eliminare (richiede ID valido).
+     * @throws DAOException Se l'ID è mancante o non valido.
+     */
     @Override
     public void delete(Categorie c) throws DAOException {
         if (c == null || c.getIdCategoria() == null || c.getIdCategoria() <= 0) {
@@ -81,6 +105,12 @@ public class DAOCategorie implements DAO<Categorie> {
         executeUpdate(query);
     }
 
+    /**
+     * Inserisce una nuova categoria nel database.
+     *
+     * @param c La categoria da inserire.
+     * @throws DAOException Se i dati non sono validi.
+     */
     @Override
     public void insert(Categorie c) throws DAOException {
         verifyObject(c);
@@ -97,6 +127,12 @@ public class DAOCategorie implements DAO<Categorie> {
         executeUpdate(query);
     }
 
+    /**
+     * Aggiorna i dati di una categoria esistente.
+     *
+     * @param c La categoria con i dati aggiornati (richiede ID).
+     * @throws DAOException Se l'ID è mancante o non valido.
+     */
     @Override
     public void update(Categorie c) throws DAOException {
         if (c == null || c.getIdCategoria() == null || c.getIdCategoria() <= 0) {

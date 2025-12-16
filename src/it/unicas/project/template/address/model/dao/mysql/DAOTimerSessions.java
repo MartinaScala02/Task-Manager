@@ -11,6 +11,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
+/**
+ * Data Access Object (DAO) per la gestione della tabella 'TimerSessions'.
+ * <p>
+ * Gestisce il ciclo di vita delle sessioni di timer (Start, Stop, Update, Delete)
+ * e la conversione tra i tipi SQL (Timestamp) e Java (LocalDateTime).
+ * </p>
+ */
 public class DAOTimerSessions implements DAO<TimerSessions> {
 
     private static DAOTimerSessions instance = null;
@@ -18,6 +25,10 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
 
     private DAOTimerSessions() {}
 
+    /**
+     * Restituisce l'istanza Singleton della classe.
+     * @return L'istanza di DAOTimerSessions.
+     */
     public static DAOTimerSessions getInstance() {
         if (instance == null) {
             instance = new DAOTimerSessions();
@@ -27,6 +38,16 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
     }
 
 
+    /**
+     * Recupera la lista delle sessioni dal database.
+     * <p>
+     * Converte automaticamente i {@link java.sql.Timestamp} del database in {@link java.time.LocalDateTime}.
+     * </p>
+     *
+     * @param t Oggetto filtro (opzionale). Filtra per idTask o per nome (LIKE).
+     * @return Una lista di oggetti TimerSessions.
+     * @throws DAOException In caso di errore SQL.
+     */
     @Override
     public List<TimerSessions> select(TimerSessions t) throws DAOException {
         ArrayList<TimerSessions> lista = new ArrayList<>();
@@ -71,7 +92,15 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
         return lista;
     }
 
-    //con insert inizia il timer
+    /**
+     * Avvia una nuova sessione di timer (INSERT).
+     * <p>
+     * Utilizza la funzione SQL {@code NOW()} per registrare l'orario di inizio lato server.
+     * </p>
+     *
+     * @param t La sessione da inserire (richiede idTask valido).
+     * @throws DAOException Se i dati sono invalidi o la query fallisce.
+     */
     @Override
     public void insert(TimerSessions t) throws DAOException {
         if (t == null || t.getIdTask() <= 0) throw new DAOException("Dati sessione non validi");
@@ -104,6 +133,12 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
         }
     }
 
+    /**
+     * Elimina una sessione dal database.
+     *
+     * @param t La sessione da eliminare (richiede idSession).
+     * @throws DAOException In caso di errore SQL.
+     */
     @Override
     public void delete(TimerSessions t) throws DAOException {
         if (t == null || t.getIdSession() <= 0) return;
@@ -122,6 +157,15 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
         }
     }
 
+    /**
+     * Aggiorna i dati di una sessione esistente.
+     * <p>
+     * Ricalcola la durata usando la funzione SQL {@code TIMESTAMPDIFF} se vengono fornite nuove date di inizio/fine.
+     * </p>
+     *
+     * @param t La sessione con i dati aggiornati.
+     * @throws DAOException Se l'ID sessione è mancante.
+     */
     @Override
     public void update(TimerSessions t) throws DAOException {
         if (t == null || t.getIdSession() <= 0) throw new DAOException("ID Sessione mancante per update");
@@ -163,6 +207,16 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
     }
 
 
+    /**
+     * Ferma una sessione attiva (STOP).
+     * <p>
+     * Imposta il campo 'fine' a {@code NOW()} e calcola la durata automaticamente tramite SQL.
+     * </p>
+     *
+     * @param idSession    L'ID della sessione da fermare.
+     * @param endLocalTime Orario di fine (parametro opzionale, nel metodo si usa NOW()).
+     * @throws DAOException In caso di errore SQL o ID non valido.
+     */
     public void stopSession(int idSession, LocalDateTime endLocalTime) throws DAOException {
         if (idSession <= 0) throw new DAOException("ID Sessione non valido.");
 
@@ -187,7 +241,13 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
 
     /**
      * Restituisce la somma totale dei secondi spesi su un task.
-     * Considero solo le sessioni concluse.
+     * <p>
+     * Considera solo le sessioni concluse (dove il campo 'fine' non è NULL).
+     * </p>
+     *
+     * @param idTask L'ID del task.
+     * @return Il totale dei secondi (long).
+     * @throws DAOException In caso di errore SQL.
      */
     public long getSommaDurataPerTask(int idTask) throws DAOException {
         Statement st = null;

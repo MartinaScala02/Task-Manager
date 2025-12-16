@@ -11,15 +11,30 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
+/**
+ * Data Access Object (DAO) per la gestione della tabella 'Utenti' su database MySQL.
+ * <p>
+ * Implementa l'interfaccia {@link DAO} e utilizza il pattern Singleton per garantire
+ * un'unica istanza di accesso ai dati in tutta l'applicazione.
+ * </p>
+ */
 public class DAOUtenti implements DAO<Utenti> {
 
-    // Singleton Pattern
+    /**
+     * Costruttore privato per impedire la creazione diretta dall'esterno.
+     */
     private DAOUtenti() {} //costruttore privato->nessuno fuori della classe può creare istanze
     //static significa che l'istanza è condivisa con tutto il programma
     private static DAOUtenti dao = null; //unica istanza della classe per tutta l'applicazione
     private static Logger logger = null; //serve per i messaggi di log -> errori/warnings/info/etc.
 
     //si controlla se l'istanza dao è già stata creata
+    /**
+     * Restituisce l'unica istanza della classe DAOUtenti (Pattern Singleton).
+     * Se l'istanza non esiste, viene creata.
+     *
+     * @return L'istanza singleton di DAOUtenti.
+     */
     public static DAOUtenti getInstance() {
         //se no la crea
         if (dao == null) {
@@ -31,6 +46,14 @@ public class DAOUtenti implements DAO<Utenti> {
     }
 
     //legge dal database gli utenti che corrispondono a certi creiteri (nome, cognome, email, ecc.) e restituisce una lista di Utenti
+    /**
+     * Esegue una query di selezione sulla tabella Utenti basata sui campi valorizzati nell'oggetto passato.
+     * Costruisce dinamicamente la query SQL (WHERE 1=1 ...) aggiungendo filtri per email, password, nome, cognome e ID.
+     *
+     * @param u Un oggetto Utenti contenente i criteri di filtro.
+     * @return Una lista di oggetti {@link Utenti} che corrispondono ai criteri di ricerca.
+     * @throws DAOException Se si verifica un errore durante l'accesso al database.
+     */
     @Override
     public List<Utenti> select(Utenti u) throws DAOException { //il metodo select può lanciare un'eccezione di tipo DAOException
         ArrayList<Utenti> lista = new ArrayList<>(); //serve per contenere i risultati della query di ricerca
@@ -39,11 +62,11 @@ public class DAOUtenti implements DAO<Utenti> {
         try {
             st = DAOMySQLSettings.getStatement(); //si apre la connessione al database
 
-            // 1. Iniziamo con una query base sempre vera
+            // Iniziamo con una query base sempre vera
             // "WHERE 1=1" è un trucco SQL per poter aggiungere tutti gli "AND" dopo senza preoccuparsi
             String sql = "SELECT * FROM Utenti WHERE 1=1 ";
 
-            // 2. COSTRUZIONE DINAMICA DELLA QUERY
+            // COSTRUZIONE DINAMICA DELLA QUERY
             // Aggiungiamo alla query SOLO i campi che non sono null
             if (u != null) {
 
@@ -75,7 +98,7 @@ public class DAOUtenti implements DAO<Utenti> {
                 }
             }
 
-            // logger.info("SQL Select generata: " + sql); // De-commenta per debug
+            // logger.info("SQL Select generata: " + sql); // Decommenta per debug
 
             ResultSet rs = st.executeQuery(sql);
             while (rs.next()) {
@@ -96,6 +119,12 @@ public class DAOUtenti implements DAO<Utenti> {
         return lista; //restituisce una lista di utenti che corrispondono ai criteri di ricerca
     }
 
+    /**
+     * Elimina un utente dal database.
+     *
+     * @param u L'oggetto Utenti da eliminare (deve avere un ID valido).
+     * @throws DAOException Se l'oggetto è nullo o l'ID è mancante.
+     */
     @Override
     public void delete(Utenti u) throws DAOException {
         if (u == null || u.getIdUtente() == null) {
@@ -107,9 +136,16 @@ public class DAOUtenti implements DAO<Utenti> {
         executeUpdate(query);
     }
 
+    /**
+     * Inserisce un nuovo utente nel database.
+     * Richiede che almeno nome ed email siano presenti.
+     *
+     * @param u L'oggetto Utenti da inserire.
+     * @throws DAOException Se i dati obbligatori mancano.
+     */
     @Override
     public void insert(Utenti u) throws DAOException {
-        // Per l'inserimento, invece, vogliamo essere severi: nome ed email servono!
+        // Per l'inserimento servono necessariamente nome ed email
         if (u == null || u.getNome() == null || u.getEmail() == null) {
             throw new DAOException("Impossibile inserire utente: dati mancanti");
         }
@@ -124,6 +160,12 @@ public class DAOUtenti implements DAO<Utenti> {
         executeUpdate(query);
     }
 
+    /**
+     * Aggiorna i dati di un utente esistente.
+     *
+     * @param u L'oggetto Utenti con i dati aggiornati (richiede ID).
+     * @throws DAOException Se l'ID è nullo.
+     */
     @Override
     public void update(Utenti u) throws DAOException {
         if (u == null || u.getIdUtente() == null) {
@@ -141,6 +183,13 @@ public class DAOUtenti implements DAO<Utenti> {
         executeUpdate(query);
     }
 
+    /**
+     * Metodo helper privato per eseguire query di aggiornamento (INSERT, UPDATE, DELETE).
+     * Gestisce l'apertura e la chiusura dello Statement.
+     *
+     * @param query La stringa SQL da eseguire.
+     * @throws DAOException In caso di errore SQL.
+     */
     private void executeUpdate(String query) throws DAOException {
         Statement st = null;
         try {
