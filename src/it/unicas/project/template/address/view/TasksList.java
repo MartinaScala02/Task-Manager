@@ -136,7 +136,13 @@ public class TasksList {
      * Inizializza le liste osservabili, il comparatore per l'ordinamento e configura i componenti UI.
      */
     private void init() {
-        tasks = FXCollections.observableArrayList();
+//        tasks = FXCollections.observableArrayList();
+//        filteredTasks = new FilteredList<>(tasks, t -> true);
+//        sortedTasks = new SortedList<>(filteredTasks);
+
+        tasks = FXCollections.observableArrayList(task ->
+                new javafx.beans.Observable[] { task.completamentoProperty(), task.scadenzaProperty() }
+        );
         filteredTasks = new FilteredList<>(tasks, t -> true);
         sortedTasks = new SortedList<>(filteredTasks);
 
@@ -252,27 +258,28 @@ public class TasksList {
             try {
                 Tasks filterTemplate = new Tasks();
                 filterTemplate.setIdUtente(MainApp.getCurrentUser().getIdUtente());
+
+                // Filtri eseguiti lato Database (più veloci)
                 if (filterCategory != null) filterTemplate.setIdCategoria(filterCategory.getIdCategoria());
                 if (filterStatus != null) filterTemplate.setCompletamento(filterStatus);
                 if (filterPriority != null && !filterPriority.equalsIgnoreCase("TUTTE")) filterTemplate.setPriorita(filterPriority);
 
                 List<Tasks> results = DAOTasks.getInstance().select(filterTemplate);
+
                 Platform.runLater(() -> {
+                    // Sostituiamo i dati
                     tasks.setAll(results);
+
+                    // applyFilters() ora deve gestire solo la Keyword (ricerca testuale)
+                    // e la Data, che sono filtri "al volo" sulla lista già scaricata
                     applyFilters();
 
-                    // Refresh forzato per evitare glitch grafici nella lista
-                    if (currentViewMode == ViewMode.LIST) {
-                        taskListView.refresh();
-                    } else {
-                        refreshView();
-                    }
+                    // Forza il ricalcolo grafico
+                    taskListView.refresh();
+                    if (currentViewMode != ViewMode.LIST) refreshView();
                 });
             } catch (DAOException e) {
-                Platform.runLater(() -> {
-                    e.printStackTrace();
-                    new Alert(Alert.AlertType.ERROR, "Errore DB: " + e.getMessage()).show();
-                });
+                Platform.runLater(() -> new Alert(Alert.AlertType.ERROR, "Errore DB: " + e.getMessage()).show());
             }
         });
         dbThread.setDaemon(true);
@@ -286,8 +293,15 @@ public class TasksList {
     public void setFilterKeyword(String keyword) {
         this.filterKeyword = (keyword != null) ? keyword.trim() : null;
         applyFilters();
-        if(currentViewMode == ViewMode.LIST) taskListView.refresh();
-        else refreshView();
+
+        // Usiamo runLater per dare tempo alla FilteredList di aggiornarsi
+        Platform.runLater(() -> {
+            if (currentViewMode == ViewMode.LIST) {
+                taskListView.refresh();
+            } else {
+                refreshView();
+            }
+        });
     }
 
     public void addTask(Tasks t) { tasks.add(t); refreshView(); }
@@ -373,14 +387,24 @@ public class TasksList {
      * Applica i filtri correnti alla FilteredList in memoria.
      * Combina in AND logico tutti i criteri (Categoria, Stato, Priorità, Data, Keyword).
      */
+    // AGGIUNGI QUESTO IMPORT IN ALTO SE MANCA
+
+
     private void applyFilters() {
         filteredTasks.setPredicate(task -> {
-            boolean catMatch = (filterCategory == null) || (task.getIdCategoria() != null && task.getIdCategoria().equals(filterCategory.getIdCategoria()));
-            boolean statMatch = (filterStatus == null) || (task.getCompletamento() == filterStatus);
+            // CORREZIONE 1: Usa Objects.equals per la Categoria
+            boolean catMatch = (filterCategory == null) ||
+                    (task.getIdCategoria() != null && Objects.equals(task.getIdCategoria(), filterCategory.getIdCategoria()));
+
+            // CORREZIONE 2: Usa Objects.equals per il Booleano (Stato)
+            // Il tuo codice originale usava '==' che fallisce con gli oggetti wrapper
+            boolean statMatch = (filterStatus == null) || Objects.equals(task.getCompletamento(), filterStatus);
+
             boolean prioMatch = true;
             if (filterPriority != null && !filterPriority.isEmpty() && !filterPriority.equalsIgnoreCase("TUTTE")) {
                 prioMatch = task.getPriorita() != null && task.getPriorita().equalsIgnoreCase(filterPriority);
             }
+
             boolean dateMatch = true;
             if (filterDate != null) {
                 if (task.getScadenza() == null || task.getScadenza().isEmpty()) { dateMatch = false; }
@@ -826,9 +850,16 @@ public class TasksList {
                     else completionTimestamps.remove(task.getIdTask());
                     Platform.runLater(() -> {
                         Comparator<Tasks> cmp = (Comparator<Tasks>) sortedTasks.getComparator();
-                        sortedTasks.setComparator(null); sortedTasks.setComparator(cmp);
+                        sortedTasks.setComparator(null);
+                        sortedTasks.setComparator(cmp);
                     });
-                    new Thread(() -> { try { DAOTasks.getInstance().update(task); } catch (Exception ex) { ex.printStackTrace(); } }).start();
+                    new Thread(() -> {
+                        try {
+                            DAOTasks.getInstance().update(task);
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
+                    }).start();
                 });
 
                 // Badge Priorità
@@ -855,47 +886,75 @@ public class TasksList {
                         LocalDate scad = smartParse(task.getScadenza());
                         if (scad != null) {
                             LocalDate oggi = LocalDate.now();
-                            if (scad.isBefore(oggi)) { dateLabel.setText("⌛ SCADUTA"); dateLabel.setStyle("-fx-text-fill: #FF5555; -fx-font-weight: bold; -fx-font-size: 12px;"); }
-                            else if (scad.isEqual(oggi)) { dateLabel.setText("🔥 OGGI"); dateLabel.setStyle("-fx-text-fill: #FFB86C; -fx-font-weight: bold; -fx-font-size: 12px;"); }
-                            else if (scad.isEqual(oggi.plusDays(1))) { dateLabel.setText("⏳ DOMANI"); dateLabel.setStyle("-fx-text-fill: #8BE9FD; -fx-font-weight: bold; -fx-font-size: 12px;"); }
-                            else { dateLabel.setText("📅 " + DateUtil.format(scad)); dateLabel.setStyle("-fx-text-fill: #bd93f9; -fx-font-size: 10px;"); }
+                            if (scad.isBefore(oggi)) {
+                                dateLabel.setText("⌛ SCADUTA");
+                                dateLabel.setStyle("-fx-text-fill: #FF5555; -fx-font-weight: bold; -fx-font-size: 12px;");
+                            } else if (scad.isEqual(oggi)) {
+                                dateLabel.setText("🔥 OGGI");
+                                dateLabel.setStyle("-fx-text-fill: #FFB86C; -fx-font-weight: bold; -fx-font-size: 12px;");
+                            } else if (scad.isEqual(oggi.plusDays(1))) {
+                                dateLabel.setText("⏳ DOMANI");
+                                dateLabel.setStyle("-fx-text-fill: #8BE9FD; -fx-font-weight: bold; -fx-font-size: 12px;");
+                            } else {
+                                dateLabel.setText("📅 " + DateUtil.format(scad));
+                                dateLabel.setStyle("-fx-text-fill: #bd93f9; -fx-font-size: 10px;");
+                            }
                         }
-                    } catch (Exception e) {}
+                    } catch (Exception e) {
+                    }
                 }
                 dateLabel.setMinWidth(Region.USE_PREF_SIZE);
 
                 // Menu
-                MenuItem editItem = new MenuItem("Modifica"); MenuItem deleteItem = new MenuItem("Elimina");
-                editItem.setOnAction(e -> onEditRequest.accept(task)); deleteItem.setOnAction(e -> onDeleteRequest.accept(task));
+                MenuItem editItem = new MenuItem("Modifica");
+                MenuItem deleteItem = new MenuItem("Elimina");
+                editItem.setOnAction(e -> onEditRequest.accept(task));
+                deleteItem.setOnAction(e -> onDeleteRequest.accept(task));
                 MenuButton menuButton = new MenuButton("⋮", null, editItem, deleteItem);
                 menuButton.getStyleClass().add("task-menu-button");
                 menuButton.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 16px;");
 
                 // Layout Riga
-                Region spacer = new Region(); HBox.setHgrow(spacer, Priority.ALWAYS);
+                Region spacer = new Region();
+                HBox.setHgrow(spacer, Priority.ALWAYS);
                 HBox taskContent = new HBox(15, completeBox, priorityBadge, textLabel, spacer, dateLabel, menuButton);
-                taskContent.setAlignment(Pos.CENTER_LEFT); taskContent.setPadding(new Insets(5, 0, 5, 0));
+                taskContent.setAlignment(Pos.CENTER_LEFT);
+                taskContent.setPadding(new Insets(5, 0, 5, 0));
                 taskContent.setOpacity(task.getCompletamento() ? 0.5 : 1.0);
 
                 // Separatore (COMPLETATE)
                 boolean showSeparator = false;
                 if (task.getCompletamento()) {
                     int index = getIndex();
-                    if (index == 0) showSeparator = true;
-                    else {
-                        // Safe check su lista filtrata corrente
-                        ObservableList<Tasks> currentList = getListView().getItems();
-                        if (currentList != null && index > 0 && index < currentList.size()) {
-                            Tasks prevTask = currentList.get(index - 1);
-                            if (!prevTask.getCompletamento()) showSeparator = true;
+                    // Prendiamo gli elementi dalla lista effettivamente visibile (sortedTasks)
+                    ObservableList<Tasks> itemsVisibili = getListView().getItems();
+
+                    if (itemsVisibili != null && !itemsVisibili.isEmpty()) {
+                        if (index == 0) {
+                            // È il primo elemento della lista ed è completato
+                            showSeparator = true;
+                        } else if (index > 0 && index < itemsVisibili.size()) {
+                            Tasks taskPrecedente = itemsVisibili.get(index - 1);
+                            // Mostra il separatore solo se passiamo da un task APERTO a uno COMPLETATO
+                            if (taskPrecedente != null && !taskPrecedente.getCompletamento()) {
+                                showSeparator = true;
+                            }
                         }
                     }
                 }
 
                 if (showSeparator) {
-                    HBox separatorBox = new HBox(); separatorBox.setAlignment(Pos.CENTER_LEFT); separatorBox.setPadding(new Insets(20, 0, 10, 0));
-                    Label sepLabel = new Label("COMPLETATE"); sepLabel.setStyle("-fx-text-fill: #f071a7; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 0 10 0 0;");
-                    Separator line = new Separator(); HBox.setHgrow(line, Priority.ALWAYS); line.setStyle("-fx-opacity: 0.3;");
+                    HBox separatorBox = new HBox();
+                    separatorBox.setAlignment(Pos.CENTER_LEFT);
+                    separatorBox.setPadding(new Insets(20, 0, 10, 0));
+
+                    Label sepLabel = new Label("COMPLETATE");
+                    sepLabel.setStyle("-fx-text-fill: #f071a7; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 0 10 0 0;");
+
+                    Separator line = new Separator();
+                    HBox.setHgrow(line, Priority.ALWAYS);
+                    line.setStyle("-fx-opacity: 0.3;");
+
                     separatorBox.getChildren().addAll(sepLabel, line);
                     rootContainer.getChildren().add(separatorBox);
                 }

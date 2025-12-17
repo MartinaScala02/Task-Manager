@@ -34,24 +34,15 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Controller ausiliario che gestisce il pannello laterale destro (Info Pane).
- * <p>
- * Questa classe è responsabile di tutta la logica di visualizzazione e interazione all'interno
- * del pannello che appare quando si seleziona un task. Gestisce:
- * <ul>
- * <li>Visualizzazione dei dettagli del task (Titolo, Descrizione, Categoria, Scadenza).</li>
- * <li>Gestione dei sotto-task (creazione, completamento, eliminazione).</li>
- * <li>Gestione del Timer (start/stop/reset) e salvataggio delle sessioni di lavoro nel DB.</li>
- * <li>Visualizzazione dello storico delle sessioni di timer.</li>
- * <li>Visualizzazione e apertura degli allegati associati al task.</li>
- * </ul>
- * <p>
- * Utilizza operazioni asincrone (CompletableFuture) per le chiamate al database al fine di
- * mantenere fluida l'interfaccia utente.
+ * Gestore del pannello laterale dei dettagli (InfoPane) per l'applicazione Task Manager.
+ * Questa classe gestisce la visualizzazione e l'interazione con i dettagli di un singolo task,
+ * inclusi i subtask, gli allegati, lo storico del timer e le sessioni di lavoro.
+ * <p>Le operazioni di database sono eseguite in modo asincrono tramite {@link CompletableFuture}
+ * per garantire la fluidità dell'interfaccia utente (UI).</p>
  */
 public class TasksInfoPane {
 
-    // --- Componenti UI ---
+    // --- UI COMPONENTS ---
     private final VBox rightDetailPanel;
     private final Label detailTitleLabel;
     private final Label detailCategoryLabel;
@@ -62,19 +53,19 @@ public class TasksInfoPane {
     private final ListView<Tasks> mainListView;
     private final ListView<Allegati> attachmentListView;
 
-    // --- Componenti Timer ---
+    // --- TIMER UI ---
     private final Label timerLabel;
     private final Label timerStatusLabel;
     private final Button btnTimerToggle;
     private final Button btnTimerReset;
 
-    // --- Componenti Storico Timer ---
+    // --- STORICO UI ---
     private final Button btnTimerMenu;
     private final VBox timerHistoryContainer;
     private final ListView<TimerSessions> timerHistoryList;
     private final Label timerTotalLabel;
 
-    // --- Stato Interno ---
+    // --- LOGICA INTERNA ---
     private Timeline timeline;
     private int secondsElapsed = 0;
     private boolean isTimerRunning = false;
@@ -82,31 +73,30 @@ public class TasksInfoPane {
     private boolean isOpen = false;
     private ObservableList<SubTasks> subTasksList;
 
-    /** ID della sessione timer attualmente attiva nel database. -1 se nessuna sessione è attiva. */
     private volatile int currentDbSessionId = -1;
-    /** Data e ora di inizio dell'ultima sessione timer locale. */
     private LocalDateTime startLocalTime;
 
     /**
-     * Costruttore principale. Inizializza i riferimenti ai componenti UI e avvia la logica interna.
+     * Costruttore della classe TasksInfoPane. Inizializza tutti i riferimenti ai componenti UI
+     * e prepara i listener per il timer e le liste.
      *
-     * @param rightDetailPanel Il contenitore principale del pannello laterale.
-     * @param detailTitleLabel Label per il titolo del task.
-     * @param detailCategoryLabel Label per la categoria del task.
-     * @param detailDueDatePicker DatePicker per la scadenza (sola lettura).
-     * @param detailDescArea Area di testo per la descrizione.
-     * @param subTaskListView Lista per i sotto-task.
-     * @param newSubTaskField Campo di input per nuovi sotto-task.
-     * @param mainListView Riferimento alla lista task principale (per deselezione).
-     * @param attachmentListView Lista per visualizzare gli allegati.
-     * @param timerLabel Label digitale del timer (HH:MM:SS).
-     * @param timerStatusLabel Label di stato del timer (In corso/In pausa).
-     * @param btnTimerToggle Bottone Start/Pausa timer.
-     * @param btnTimerReset Bottone Reset timer.
-     * @param btnTimerMenu Bottone per mostrare/nascondere lo storico timer.
-     * @param timerHistoryContainer Contenitore per lo storico timer.
-     * @param timerHistoryList Lista visuale delle sessioni passate.
-     * @param timerTotalLabel Label per il tempo totale speso sul task.
+     * @param rightDetailPanel      VBox del pannello dettagli.
+     * @param detailTitleLabel      Label per il titolo del task.
+     * @param detailCategoryLabel   Label per la categoria.
+     * @param detailDueDatePicker   DatePicker per la scadenza.
+     * @param detailDescArea        Area di testo per la descrizione.
+     * @param subTaskListView       ListView per i subtask.
+     * @param newSubTaskField       Campo input per nuovi subtask.
+     * @param mainListView          Lista principale dei task.
+     * @param attachmentListView    ListView per gli allegati.
+     * @param timerLabel            Label tempo trascorso.
+     * @param timerStatusLabel      Label stato timer.
+     * @param btnTimerToggle        Bottone Avvia/Pausa.
+     * @param btnTimerReset         Bottone Reset.
+     * @param btnTimerMenu          Bottone Storico.
+     * @param timerHistoryContainer Container storico.
+     * @param timerHistoryList      ListView sessioni.
+     * @param timerTotalLabel       Label tempo totale.
      */
     public TasksInfoPane(VBox rightDetailPanel, Label detailTitleLabel, Label detailCategoryLabel,
                          DatePicker detailDueDatePicker, TextArea detailDescArea,
@@ -140,9 +130,7 @@ public class TasksInfoPane {
     }
 
     /**
-     * Inizializzazione interna dei componenti e dei listener.
-     * Configura le proprietà di sola lettura per i campi di dettaglio, le liste osservabili
-     * e avvia la logica del timer.
+     * Inizializza i componenti grafici, configura le CellFactory e imposta la logica del timer.
      */
     private void init() {
         if (detailDescArea != null) {
@@ -170,15 +158,12 @@ public class TasksInfoPane {
         setupTimerLogic();
     }
 
-
     /**
-     * Configura la ListView degli allegati.
-     * Imposta la CellFactory per mostrare icona e nome file, e gestisce il doppio click per l'apertura.
+     * Configura la visualizzazione della lista allegati e la gestione del doppio click per l'apertura file.
      */
     private void initAttachmentList() {
         if (attachmentListView == null) return;
 
-        // Configurazione Cella (Visualizzazione)
         attachmentListView.setCellFactory(param -> new ListCell<>() {
             @Override
             protected void updateItem(Allegati item, boolean empty) {
@@ -195,7 +180,6 @@ public class TasksInfoPane {
             }
         });
 
-        // Gestione Doppio Click (Apertura File)
         attachmentListView.setOnMouseClicked(e -> {
             if (e.getClickCount() == 2) {
                 Allegati selected = attachmentListView.getSelectionModel().getSelectedItem();
@@ -207,7 +191,7 @@ public class TasksInfoPane {
     }
 
     /**
-     * Carica asincronamente gli allegati per il task specificato dal DB.
+     * Carica asincronamente gli allegati dal database per il task specificato.
      * @param taskId ID del task.
      */
     private void loadAttachments(int taskId) {
@@ -229,9 +213,8 @@ public class TasksInfoPane {
     }
 
     /**
-     * Apre il file specificato utilizzando l'applicazione di sistema predefinita.
-     * Esegue controlli di esistenza del file e supporto della piattaforma.
-     * @param path Percorso assoluto del file.
+     * Apre un file utilizzando l'applicazione predefinita del sistema operativo.
+     * @param path Percorso del file.
      */
     private void openFile(String path) {
         if (path == null || path.isEmpty()) return;
@@ -243,20 +226,20 @@ public class TasksInfoPane {
                     if (Desktop.isDesktopSupported()) {
                         Desktop.getDesktop().open(file);
                     } else {
-                        Platform.runLater(() -> new Alert(Alert.AlertType.WARNING, "Apertura non supportata dal sistema.").show());
+                        Platform.runLater(() -> new Alert(Alert.AlertType.WARNING, "Apertura non supportata.").show());
                     }
                 } else {
                     Platform.runLater(() -> new Alert(Alert.AlertType.ERROR, "File non trovato:\n" + path).show());
                 }
             } catch (IOException ex) {
                 ex.printStackTrace();
-                Platform.runLater(() -> new Alert(Alert.AlertType.ERROR, "Errore apertura file: " + ex.getMessage()).show());
+                Platform.runLater(() -> new Alert(Alert.AlertType.ERROR, "Errore apertura: " + ex.getMessage()).show());
             }
         });
     }
 
     /**
-     * Configura la Timeline per l'aggiornamento secondo per secondo del timer e i listener dei pulsanti.
+     * Configura la timeline del timer e i relativi pulsanti.
      */
     private void setupTimerLogic() {
         timeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
@@ -271,20 +254,17 @@ public class TasksInfoPane {
     }
 
     /**
-     * Avvia o mette in pausa il timer.
-     * Gestisce sia l'aggiornamento UI che l'apertura/chiusura delle sessioni nel DB.
+     * Avvia o mette in pausa il timer gestendo la sessione sul database.
      */
     public void toggleTimer() {
         if (currentSelectedTask == null) return;
 
         if (isTimerRunning) {
-            // STOP TIMER
             timeline.stop();
             isTimerRunning = false;
             updateUIState(false);
             stopDbSessionAndReload();
         } else {
-            // START TIMER
             secondsElapsed = 0;
             updateTimerDisplay(0);
             startLocalTime = LocalDateTime.now().withNano(0);
@@ -296,7 +276,7 @@ public class TasksInfoPane {
     }
 
     /**
-     * Crea una nuova sessione timer nel database in modo asincrono.
+     * Registra l'inizio di una sessione di lavoro nel database.
      */
     private void startDbSession() {
         int taskId = currentSelectedTask.getIdTask();
@@ -312,13 +292,12 @@ public class TasksInfoPane {
                 currentDbSessionId = session.getIdSession();
             } catch (DAOException e) {
                 e.printStackTrace();
-                Platform.runLater(() -> new Alert(Alert.AlertType.ERROR, "Errore Start Timer: " + e.getMessage()).show());
             }
         });
     }
 
     /**
-     * Chiude la sessione timer corrente nel database e ricarica lo storico.
+     * Chiude la sessione corrente e ricarica lo storico.
      */
     private void stopDbSessionAndReload() {
         int idDaChiudere = currentDbSessionId;
@@ -339,7 +318,7 @@ public class TasksInfoPane {
     }
 
     /**
-     * Resetta il contatore visivo del timer a zero (solo se non in esecuzione).
+     * Resetta il contatore del timer se non è in esecuzione.
      */
     public void resetTimer() {
         if (isTimerRunning) return;
@@ -348,10 +327,8 @@ public class TasksInfoPane {
         if (timerStatusLabel != null) timerStatusLabel.setText("Pronto");
     }
 
-
     /**
-     * Crea un nuovo sotto-task nel database e lo aggiunge alla lista visuale.
-     * Utilizza il testo inserito nel campo {@code newSubTaskField}.
+     * Crea un nuovo subtask asincronamente.
      */
     public void createSubTask() {
         String titolo = newSubTaskField.getText().trim();
@@ -376,7 +353,7 @@ public class TasksInfoPane {
     }
 
     /**
-     * Ricarica la lista dei sotto-task per il task corrente dal DB.
+     * Aggiorna la lista dei subtask per il task corrente.
      */
     private void refreshSubTasks() {
         if (currentSelectedTask == null) return;
@@ -391,43 +368,34 @@ public class TasksInfoPane {
         });
     }
 
-
     /**
-     * Apre il pannello laterale popolandolo con i dettagli del task passato.
-     * <p>
-     * Questo metodo si occupa di:
-     * 1. Aggiornare i testi (titolo, descrizione, categoria).
-     * 2. Resettare timer e stato interno.
-     * 3. Avviare il caricamento asincrono di subtask, storico e allegati.
-     * 4. Avviare l'animazione di apertura.
-     *
-     * @param task Il task da visualizzare.
-     * @param categoryName Il nome della categoria del task (per visualizzazione).
+     * Apre il pannello dettagli popolandolo con i dati del task.
+     * @param task Task da visualizzare.
+     * @param categoryName Nome della categoria.
      */
     public void openPanel(Tasks task, String categoryName) {
         this.currentSelectedTask = task;
 
-        // Aggiornamento UI Dettagli
         if (detailTitleLabel != null) detailTitleLabel.setText(task.getTitolo());
 
         if (detailDescArea != null) {
             String desc = task.getDescrizione();
             if (desc == null || desc.trim().isEmpty()) {
                 detailDescArea.setText("Nessuna descrizione aggiunta.");
-                detailDescArea.setStyle("-fx-text-fill: #777777; -fx-font-style: italic; -fx-control-inner-background: transparent; -fx-background-color: transparent;");
+                detailDescArea.setStyle("-fx-text-fill: #777777; -fx-font-style: italic; -fx-background-color: transparent;");
             } else {
                 detailDescArea.setText(desc);
-                detailDescArea.setStyle("-fx-text-fill: white; -fx-font-style: normal; -fx-control-inner-background: transparent; -fx-background-color: transparent;");
+                detailDescArea.setStyle("-fx-text-fill: white; -fx-font-style: normal; -fx-background-color: transparent;");
             }
         }
 
         if (detailCategoryLabel != null) {
             if (categoryName == null || categoryName.trim().isEmpty()) {
                 detailCategoryLabel.setText("Nessuna categoria");
-                detailCategoryLabel.setStyle("-fx-text-fill: #666666; -fx-font-style: italic; -fx-font-size: 11px;");
+                detailCategoryLabel.setStyle("-fx-text-fill: #666666; -fx-font-style: italic;");
             } else {
                 detailCategoryLabel.setText(categoryName.toUpperCase());
-                detailCategoryLabel.setStyle("-fx-text-fill: #bd93f9; -fx-font-weight: bold; -fx-font-style: normal; -fx-font-size: 11px;");
+                detailCategoryLabel.setStyle("-fx-text-fill: #bd93f9; -fx-font-weight: bold;");
             }
         }
 
@@ -435,11 +403,8 @@ public class TasksInfoPane {
             detailDueDatePicker.setPromptText("Nessuna scadenza");
             if (task.getScadenza() != null && !task.getScadenza().isEmpty()) {
                 LocalDate date = null;
-                try {
-                    date = LocalDate.parse(task.getScadenza());
-                } catch (Exception e) {
-                    date = DateUtil.parse(task.getScadenza());
-                }
+                try { date = LocalDate.parse(task.getScadenza()); }
+                catch (Exception e) { date = DateUtil.parse(task.getScadenza()); }
                 detailDueDatePicker.setValue(date);
                 detailDueDatePicker.setStyle("-fx-opacity: 1;");
             } else {
@@ -448,7 +413,6 @@ public class TasksInfoPane {
             }
         }
 
-        // Reset Stato
         resetTimer();
         isTimerRunning = false;
         if(timeline != null) timeline.stop();
@@ -464,12 +428,10 @@ public class TasksInfoPane {
             if(btnTimerMenu!=null) btnTimerMenu.setText("▼");
         }
 
-        // Caricamento Dati Asincrono
         refreshSubTasks();
         loadHistory(task.getIdTask());
         loadAttachments(task.getIdTask());
 
-        // Animazione Apertura
         if (!isOpen && rightDetailPanel != null) {
             animatePanel(0);
             isOpen = true;
@@ -477,7 +439,7 @@ public class TasksInfoPane {
     }
 
     /**
-     * Carica lo storico delle sessioni timer dal database.
+     * Carica lo storico sessioni e il tempo totale speso.
      * @param taskId ID del task.
      */
     private void loadHistory(int taskId) {
@@ -497,44 +459,40 @@ public class TasksInfoPane {
     }
 
     /**
-     * Chiude il pannello laterale con un'animazione.
-     * Se il timer è in esecuzione, lo mette in pausa automaticamente.
+     * Chiude il pannello, mette in pausa il timer e deseleziona il task.
      */
     public void closePanel() {
-        if (isTimerRunning) {
-            toggleTimer(); // Pausa automatica
-        }
+        if (isTimerRunning) toggleTimer();
 
         if (isOpen && rightDetailPanel != null) {
             double width = rightDetailPanel.getWidth();
             if (width == 0) width = 450;
             animatePanel(width);
             isOpen = false;
-
             mainListView.getSelectionModel().clearSelection();
             currentSelectedTask = null;
         }
     }
 
     /**
-     * Aggiorna lo stato visivo dei pulsanti e delle label del timer.
-     * @param running true se il timer è attivo, false altrimenti.
+     * Aggiorna lo stato visivo dei pulsanti del timer.
+     * @param running True se attivo.
      */
     private void updateUIState(boolean running) {
         if (timerStatusLabel != null) timerStatusLabel.setText(running ? "In corso..." : "In pausa");
         if (btnTimerToggle != null) {
             if (running) {
                 btnTimerToggle.setText("|| PAUSA");
-                btnTimerToggle.setStyle("-fx-background-color: transparent; -fx-text-fill: #F071A7; -fx-border-color: #F071A7; -fx-border-radius: 4; -fx-min-width: 40; -fx-cursor: hand; -fx-font-weight: bold;");
+                btnTimerToggle.setStyle("-fx-background-color: transparent; -fx-text-fill: #F071A7; -fx-border-color: #F071A7; -fx-border-radius: 4; -fx-font-weight: bold;");
             } else {
                 btnTimerToggle.setText("▶ AVVIA");
-                btnTimerToggle.setStyle("-fx-background-color: #F071A7; -fx-text-fill: white; -fx-background-radius: 4; -fx-min-width: 40; -fx-cursor: hand; -fx-font-weight: bold;");
+                btnTimerToggle.setStyle("-fx-background-color: #F071A7; -fx-text-fill: white; -fx-background-radius: 4; -fx-font-weight: bold;");
             }
         }
     }
 
     /**
-     * Aggiorna il display digitale del timer (HH:MM:SS).
+     * Aggiorna il display del timer corrente.
      * @param seconds Secondi trascorsi.
      */
     private void updateTimerDisplay(long seconds) {
@@ -547,8 +505,8 @@ public class TasksInfoPane {
     }
 
     /**
-     * Aggiorna la label del tempo totale trascorso sul task.
-     * @param totalSeconds Totale secondi da visualizzare.
+     * Aggiorna il tempo totale accumulato.
+     * @param totalSeconds Secondi totali.
      */
     private void updateTotalTimeLabel(long totalSeconds) {
         if (timerTotalLabel == null) return;
@@ -559,7 +517,7 @@ public class TasksInfoPane {
     }
 
     /**
-     * Mostra o nasconde la lista dello storico delle sessioni.
+     * Mostra o nasconde lo storico sessioni.
      */
     public void toggleHistoryMenu() {
         if (timerHistoryContainer == null) return;
@@ -570,44 +528,49 @@ public class TasksInfoPane {
     }
 
     /**
-     * Configura la CellFactory per la lista dello storico.
-     * Permette di visualizzare data/durata e il pulsante di eliminazione per ogni sessione.
+     * Configura la visualizzazione delle sessioni nello storico.
      */
     private void setupHistoryCellFactory() {
         timerHistoryList.setCellFactory(lv -> new ListCell<>() {
             @Override
             protected void updateItem(TimerSessions item, boolean empty) {
                 super.updateItem(item, empty);
+
                 if (empty || item == null) {
-                    setText(null); setGraphic(null); setStyle("-fx-background-color: transparent;");
+                    setText(null);
+                    setGraphic(null);
+                    setStyle("-fx-background-color: transparent;");
                 } else {
-                    HBox box = new HBox(10); box.setAlignment(Pos.CENTER_LEFT);
+                    HBox box = new HBox(10);
+                    box.setAlignment(Pos.CENTER_LEFT);
+
                     String dateStr = (item.getInizio() != null) ? item.getInizio().format(DateTimeFormatter.ofPattern("dd/MM HH:mm")) : "--/--";
                     Label label = new Label(dateStr + "  ➜  " + item.getDurataFormattata());
                     label.setStyle("-fx-text-fill: #aaaaaa; -fx-font-size: 11px;");
-                    HBox.setHgrow(label, Priority.ALWAYS); label.setMaxWidth(Double.MAX_VALUE);
+                    HBox.setHgrow(label, Priority.ALWAYS);
+                    label.setMaxWidth(Double.MAX_VALUE);
 
                     Button delBtn = new Button("×");
                     delBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #e74c3c; -fx-font-weight: bold; -fx-font-size: 14px; -fx-cursor: hand; -fx-padding: 0 5 0 5; -fx-border-color: transparent;");
+
                     delBtn.setOnAction(e -> deleteSession(item));
 
                     box.getChildren().addAll(label, delBtn);
-                    setGraphic(box); setText(null);
+                    setGraphic(box);
+                    setText(null);
                     setStyle("-fx-background-color: transparent; -fx-padding: 2;");
                 }
             }
         });
     }
-
     /**
-     * Elimina una sessione timer dallo storico e dal DB dopo conferma utente.
-     * @param item La sessione da eliminare.
+     * Elimina una sessione dal database e aggiorna la UI.
+     * @param item Sessione da eliminare.
      */
     private void deleteSession(TimerSessions item) {
         if (item == null) return;
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Eliminare sessione?", ButtonType.YES, ButtonType.NO);
         alert.showAndWait();
-
         if (alert.getResult() == ButtonType.YES) {
             timerHistoryList.getItems().remove(item);
             CompletableFuture.runAsync(() -> {
@@ -620,9 +583,9 @@ public class TasksInfoPane {
     }
 
     /**
-     * Configura la CellFactory per la lista dei sotto-task.
-     * Aggiunge CheckBox per il completamento e pulsante di cancellazione.
+     * Configura la visualizzazione dei subtask con checkbox e tasto elimina.
      */
+
     private void setupSubTaskCellFactory() {
         subTaskListView.setCellFactory(param -> new ListCell<>() {
             @Override
@@ -631,7 +594,8 @@ public class TasksInfoPane {
                 if (empty || item == null) {
                     setText(null); setGraphic(null); setStyle("-fx-background-color: transparent;");
                 } else {
-                    HBox box = new HBox(10); box.setAlignment(Pos.CENTER_LEFT);
+                    HBox box = new HBox(10);
+                    box.setAlignment(Pos.CENTER_LEFT);
 
                     CheckBox cb = new CheckBox();
                     cb.setSelected(item.getCompletamento());
@@ -646,10 +610,11 @@ public class TasksInfoPane {
                     Label label = new Label(item.getTitolo());
                     label.setStyle("-fx-text-fill: white; -fx-font-size: 13px;");
                     if (item.getCompletamento()) label.setStyle("-fx-text-fill: #888; -fx-strikethrough: true; -fx-font-size: 13px;");
-                    HBox.setHgrow(label, Priority.ALWAYS); label.setMaxWidth(Double.MAX_VALUE);
+                    HBox.setHgrow(label, Priority.ALWAYS);
+                    label.setMaxWidth(Double.MAX_VALUE);
 
                     Button delBtn = new Button("×");
-                    delBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #e74c3c; -fx-font-weight: bold; -fx-font-size: 14px; -fx-cursor: hand;");
+                    delBtn.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #e74c3c; -fx-font-weight: bold; -fx-font-size: 14px; -fx-cursor: hand;");
                     delBtn.setOnAction(e -> {
                         CompletableFuture.runAsync(() -> {
                             try { DAOSubTasks.getInstance().delete(item); } catch (DAOException ex) { ex.printStackTrace(); }
@@ -658,15 +623,16 @@ public class TasksInfoPane {
                     });
 
                     box.getChildren().addAll(cb, label, delBtn);
-                    setGraphic(box); setStyle("-fx-background-color: transparent;");
+                    setGraphic(box);
+                    setStyle("-fx-background-color: transparent;");
                 }
             }
         });
     }
 
     /**
-     * Esegue l'animazione di scorrimento laterale del pannello.
-     * @param toX Coordinata X finale (0 per aperto, larghezza pannello per chiuso).
+     * Gestisce l'animazione di traslazione del pannello.
+     * @param toX Coordinata X finale.
      */
     private void animatePanel(double toX) {
         TranslateTransition tt = new TranslateTransition(Duration.millis(300), rightDetailPanel);
@@ -674,6 +640,8 @@ public class TasksInfoPane {
         tt.play();
     }
 
+    /** @return True se il pannello è aperto. */
     public boolean isOpen() { return isOpen; }
+    /** @return Task correntemente selezionato. */
     public Tasks getCurrentTask() { return currentSelectedTask; }
 }

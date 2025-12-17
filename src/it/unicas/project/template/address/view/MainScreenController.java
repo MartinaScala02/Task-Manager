@@ -105,6 +105,7 @@ public class MainScreenController {
     private File pendingFile = null;
 
 
+
     /**
      * Collega l'applicazione principale a questo controller.
      * Viene chiamato da MainApp dopo il caricamento dell'FXML.
@@ -118,8 +119,6 @@ public class MainScreenController {
         if (tasksListHelper != null && MainApp.getCurrentUser() != null) {
             tasksListHelper.loadTasks(MainApp.getCurrentUser().getIdUtente());
 
-            // Avvia un thread per controllare le notifiche dopo un breve ritardo,
-            // per assicurarsi che i dati siano stati caricati.
             new Thread(() -> {
                 try { Thread.sleep(500); } catch (InterruptedException e) {}
                 javafx.application.Platform.runLater(this::checkNotifications);
@@ -142,26 +141,25 @@ public class MainScreenController {
      */
     @FXML
     private void initialize() {
-        // Configurazione estetica dei DatePicker (nasconde i numeri della settimana)
+
         if (filterDatePicker != null) filterDatePicker.setShowWeekNumbers(false);
         if (detailDueDatePicker != null) detailDueDatePicker.setShowWeekNumbers(false);
         if (dueDateField != null) dueDateField.setShowWeekNumbers(false);
 
-        // 1. Inizializzazione Helper Liste e Viste
-        // Passiamo i callback per Edit, Delete e OpenDetail
+
         tasksListHelper = new TasksList(
                 taskListView, gridViewContainer, gridFlowPane,
                 calendarViewContainer, calendarGrid, weekViewContainer, weekViewBox, calendarMonthLabel,
                 mainApp, this::handleEditTask, this::handleDeleteTask, this::handleOpenDetail
         );
 
-        // Listener per la ricerca testuale in tempo reale
+
         if (txtSearch != null) {
             txtSearch.textProperty().addListener((observable, oldValue, newValue) ->
                     tasksListHelper.setFilterKeyword(newValue));
         }
 
-        // 2. Inizializzazione Pannello Dettagli e Timer
+
         tasksInfoPane = new TasksInfoPane(
                 rightDetailPanel, detailTitleLabel, detailCategoryLabel,
                 detailDueDatePicker, detailDescArea, subTaskListView,
@@ -171,14 +169,14 @@ public class MainScreenController {
                 btnTimerMenu, timerHistoryContainer, timerHistoryList, timerTotalLabel
         );
 
-        // 3. Inizializzazione Filtri
+
         filtersPane = new FiltersPane(filterPriorityCombo, filterDatePicker,
                 btnFilterTodo, btnFilterDone, categoryMenuContainer,
                 categoryComboBox, tasksListHelper);
 
         setupCreationForm();
 
-        // Gestione Click Lista Task (Doppio click apre i dettagli)
+
         taskListView.setOnMouseClicked(event -> {
             if (event.getClickCount() == 2) {
                 Tasks sel = taskListView.getSelectionModel().getSelectedItem();
@@ -186,7 +184,7 @@ public class MainScreenController {
             }
         });
 
-        // Listener per aggiornare il badge notifiche quando la lista cambia
+
         if (tasksListHelper != null) {
             tasksListHelper.getTasks().addListener((javafx.collections.ListChangeListener<Tasks>) c -> {
                 checkNotifications();
@@ -379,20 +377,20 @@ public class MainScreenController {
      * @param t Il task da modificare.
      */
     private void handleEditTask(Tasks t) {
-        // 1. Apri la finestra di dialogo (questo deve avvenire nel thread UI)
+
         boolean okClicked = mainApp.showTasksEditDialog(t);
 
         if (okClicked) {
-            // 2. Esegui l'aggiornamento nel database in un Thread separato
+
             new Thread(() -> {
                 try {
                     DAOTasks.getInstance().update(t);
 
-                    // 3. Se successo, aggiorna l'interfaccia grafica (UI Thread)
+
                     Platform.runLater(() -> {
                         tasksListHelper.updateTaskInList(t);
 
-                        // Se il pannello laterale è aperto su questo task, aggiornalo
+
                         if (tasksInfoPane.isOpen() && tasksInfoPane.getCurrentTask().equals(t)) {
                             String catName = tasksListHelper.getCategoryName(t.getIdCategoria(), categoryComboBox.getItems());
                             tasksInfoPane.openPanel(t, catName);
@@ -498,14 +496,14 @@ public class MainScreenController {
             mainApp.showPromemoria(
                     MainApp.getCurrentUser().getIdUtente(),
 
-                    // Callback 1: Azione alla chiusura (Nascondi pallino notifiche)
+
                     () -> {
                         if (notificationBadge != null) {
                             notificationBadge.setVisible(false);
                         }
                     },
 
-                    // Callback 2: Azione al doppio click (Apri dettaglio task)
+
                     (selectedTask) -> {
                         taskListView.getSelectionModel().select(selectedTask);
                         taskListView.scrollTo(selectedTask);
@@ -527,37 +525,37 @@ public class MainScreenController {
         LocalDate today = LocalDate.now();
         LocalDate tomorrow = today.plusDays(1);
 
-        // Conta quanti task scadono oggi, domani o sono scaduti e NON sono completati
+
         boolean hasUrgentTasks = tasksListHelper.getTasks().stream().anyMatch(t -> {
             if (t.getCompletamento()) return false; // Ignora completati
             if (t.getScadenza() == null || t.getScadenza().isEmpty()) return false;
 
-            // MODIFICA: Usiamo smartParse per essere sicuri di leggere qualsiasi formato
+
             LocalDate due = smartParse(t.getScadenza());
 
             if (due == null) return false;
 
-            // Urgente se: è scaduto OPPURE scade oggi OPPURE scade domani
+
             return !due.isAfter(tomorrow);
         });
 
-        // Mostra o nascondi il pallino
+
         if (notificationBadge != null) {
             notificationBadge.setVisible(hasUrgentTasks);
         }
     }
-    // Metodo helper per gestire date miste (ISO e Italiane)
+
     private LocalDate smartParse(String dateString) {
         if (dateString == null || dateString.isEmpty()) return null;
         try {
-            // 1. Prova formato ISO (yyyy-MM-dd)
+
             return LocalDate.parse(dateString);
         } catch (Exception e) {
             try {
-                // 2. Se fallisce, prova formato DateUtil (dd/MM/yyyy)
+
                 return it.unicas.project.template.address.util.DateUtil.parse(dateString);
             } catch (Exception ex) {
-                return null; // Data illeggibile
+                return null;
             }
         }
     }

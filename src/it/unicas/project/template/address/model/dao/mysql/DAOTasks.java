@@ -13,19 +13,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
-// Import Date
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 
 /**
  * Data Access Object (DAO) per la gestione della tabella 'Tasks' su database MySQL.
- * <p>
- * Questa classe gestisce le operazioni CRUD (Create, Read, Update, Delete) per i Task.
- * Implementa funzionalità avanzate di <b>gestione delle transazioni</b> per garantire
- * l'integrità dei dati e inserisce automaticamente record di <b>Audit Log</b>
- * per tracciare le modifiche.
- * </p>
+ * Gestisce le operazioni CRUD e assicura l'integrità dei dati tramite transazioni.
+ * * <p><b>FIX:</b> Questa versione gestisce correttamente i valori NULL per le date di scadenza.</p>
  */
 public class DAOTasks implements DAO<Tasks> {
 
@@ -45,20 +40,9 @@ public class DAOTasks implements DAO<Tasks> {
     }
 
     /**
-     * Inserisce un nuovo Task nel database.
-     * <p>
-     * Questo metodo utilizza una <b>Transazione SQL</b> esplicita:
-     * </p>
-     * <ol>
-     * <li>Disabilita l'auto-commit.</li>
-     * <li>Esegue l'INSERT del task.</li>
-     * <li>Recupera l'ID generato.</li>
-     * <li>Registra l'operazione nella tabella AuditLog (nella stessa transazione).</li>
-     * <li>Esegue il commit se tutto va a buon fine, altrimenti esegue il rollback.</li>
-     * </ol>
-     *
+     * Inserisce un nuovo Task nel database gestendo la transazione e l'audit log.
      * @param t Il task da inserire.
-     * @throws DAOException Se i dati non sono validi o se si verifica un errore SQL.
+     * @throws DAOException Se i dati non sono validi o in caso di errore SQL.
      */
     @Override
     public void insert(Tasks t) throws DAOException {
@@ -67,26 +51,27 @@ public class DAOTasks implements DAO<Tasks> {
         Connection conn = null;
 
         try {
-            //Usiamo il metodo originale per ottenere lo statement
             st = DAOMySQLSettings.getStatement();
-
-            //Recuperiamo la connessione dallo statement per gestire la transazione
             conn = st.getConnection();
-            conn.setAutoCommit(false); // Inizio Transazione
+            conn.setAutoCommit(false);
 
-            // Preparazione Query
             int completatoInt = (t.getCompletamento() != null && t.getCompletamento()) ? 1 : 0;
             String idCatVal = (t.getIdCategoria() != null && t.getIdCategoria() > 0) ? t.getIdCategoria().toString() : "NULL";
+
+            // --- FIX SCADENZA ---
+            String scadenzaVal = (t.getScadenza() != null && !t.getScadenza().isEmpty() && !t.getScadenza().equalsIgnoreCase("null"))
+                    ? "'" + t.getScadenza() + "'"
+                    : "NULL";
+
             String query = "INSERT INTO Tasks (titolo, descrizione, scadenza, priorità, completamento, idUtente, idCategoria) VALUES ('"
                     + t.getTitolo().replace("'", "\\'") + "', '"
-                    + (t.getDescrizione() != null ? t.getDescrizione().replace("'", "\\'") : "") + "', '"
-                    + t.getScadenza() + "', '"
+                    + (t.getDescrizione() != null ? t.getDescrizione().replace("'", "\\'") : "") + "', "
+                    + scadenzaVal + ", '" // Nota: niente apici intorno a scadenzaVal perché sono già inclusi se serve
                     + t.getPriorita() + "', "
                     + completatoInt + ", "
                     + t.getIdUtente() + ", "
                     + idCatVal + ")";
 
-            // Esecuzione
             st.executeUpdate(query, Statement.RETURN_GENERATED_KEYS);
             ResultSet rs = st.getGeneratedKeys();
             if (rs.next()) {
@@ -94,37 +79,24 @@ public class DAOTasks implements DAO<Tasks> {
             }
             rs.close();
 
-            // Audit Log (Usiamo la stessa connessione 'conn')
             AuditLog log = new AuditLog("INSERT", t.getIdTask(), t.getIdUtente(), "Creato task: " + t.getTitolo());
             DAOAuditLog.getInstance().insert(log, conn);
 
-            //Conferma tutto
             conn.commit();
 
         } catch (SQLException e) {
-            // Rollback in caso di errore
-            if (conn != null) {
-                try { conn.rollback(); } catch (SQLException ex) { ex.printStackTrace(); }
-            }
+            if (conn != null) try { conn.rollback(); } catch (SQLException ex) {}
             throw new DAOException("Errore Insert: " + e.getMessage());
         } finally {
-            // Pulizia: Chiudiamo statement E connessione manualmente per sicurezza
             DAOMySQLSettings.closeStatement(st);
-            if (conn != null) {
-                try { conn.close(); } catch (SQLException e) { e.printStackTrace(); }
-            }
+            if (conn != null) try { conn.close(); } catch (SQLException e) {}
         }
     }
 
     /**
-     * Aggiorna un Task esistente nel database.
-     * <p>
-     * Utilizza una transazione per garantire l'atomicità tra l'aggiornamento del task
-     * e l'inserimento del log di audit.
-     * </p>
-     *
-     * @param t Il task con i dati aggiornati.
-     * @throws DAOException Se l'ID è mancante o in caso di errore SQL.
+     * Aggiorna un Task esistente. Corregge il bug del salvataggio completamento per task senza data.
+     * @param t Il task aggiornato.
+     * @throws DAOException In caso di errore SQL o ID mancante.
      */
     @Override
     public void update(Tasks t) throws DAOException {
@@ -141,10 +113,16 @@ public class DAOTasks implements DAO<Tasks> {
 
             int completatoInt = (t.getCompletamento() != null && t.getCompletamento()) ? 1 : 0;
             String idCatVal = (t.getIdCategoria() != null && t.getIdCategoria() > 0) ? t.getIdCategoria().toString() : "NULL";
+
+            // --- FIX SCADENZA: Se vuota o null, usa la parola NULL di SQL senza apici ---
+            String scadenzaVal = (t.getScadenza() != null && !t.getScadenza().isEmpty() && !t.getScadenza().equalsIgnoreCase("null"))
+                    ? "'" + t.getScadenza() + "'"
+                    : "NULL";
+
             String query = "UPDATE Tasks SET "
                     + "titolo = '" + t.getTitolo().replace("'", "\\'") + "', "
                     + "descrizione = '" + (t.getDescrizione() != null ? t.getDescrizione().replace("'", "\\'") : "") + "', "
-                    + "scadenza = '" + t.getScadenza() + "', "
+                    + "scadenza = " + scadenzaVal + ", " // Corretto: rimosso l'apice singolo fisso
                     + "priorità = '" + t.getPriorita() + "', "
                     + "idCategoria = " + idCatVal + ", "
                     + "completamento = " + completatoInt
@@ -167,13 +145,9 @@ public class DAOTasks implements DAO<Tasks> {
     }
 
     /**
-     * Elimina un Task dal database.
-     * <p>
-     * Esegue l'operazione in una transazione per registrare l'evento di cancellazione nel log.
-     * </p>
-     *
-     * @param t Il task da eliminare.
-     * @throws DAOException Se l'ID è mancante o in caso di errore SQL.
+     * Elimina un task e registra l'operazione nel log.
+     * @param t Task da eliminare.
+     * @throws DAOException Errore durante la cancellazione.
      */
     @Override
     public void delete(Tasks t) throws DAOException {
@@ -205,12 +179,10 @@ public class DAOTasks implements DAO<Tasks> {
     }
 
     /**
-     * Esegue una ricerca (SELECT) sulla tabella Tasks.
-     * Costruisce dinamicamente la clausola WHERE in base ai campi non nulli dell'oggetto passato.
-     *
-     * @param t Oggetto filtro. Se null restituisce tutti i task.
-     * @return Lista di Task trovati.
-     * @throws DAOException In caso di errore SQL.
+     * Recupera i task filtrati in base ai parametri forniti.
+     * @param t Task filtro.
+     * @return Lista di task trovati.
+     * @throws DAOException Errore di lettura.
      */
     @Override
     public List<Tasks> select(Tasks t) throws DAOException {
@@ -249,21 +221,23 @@ public class DAOTasks implements DAO<Tasks> {
     }
 
     /**
-     * Metodo helper per validare i dati del Task prima di Insert/Update.
-     * Verifica i campi obbligatori e il formato della data.
-     *
-     * @param t Il task da validare.
-     * @throws DAOException Se i dati non sono validi.
+     * Valida la struttura del task prima di procedere con le operazioni DB.
+     * @param t Task da verificare.
+     * @throws DAOException Se i dati sono inconsistenti.
      */
     private void verifyObject(Tasks t) throws DAOException {
         if (t == null) throw new DAOException("Task nullo");
         if (t.getTitolo() == null || t.getTitolo().isEmpty()) throw new DAOException("Titolo obbligatorio");
         if (t.getIdUtente() == null || t.getIdUtente() <= 0) throw new DAOException("Utente obbligatorio");
-        if (t.getScadenza() != null && !t.getScadenza().isEmpty()) {
+
+        // La verifica della data scatta solo se la data è presente
+        if (t.getScadenza() != null && !t.getScadenza().isEmpty() && !t.getScadenza().equalsIgnoreCase("null")) {
             try {
-                LocalDate d = null;
-                if (t.getScadenza().matches("\\d{4}-\\d{2}-\\d{2}")) d = LocalDate.parse(t.getScadenza());
-                else d = LocalDate.parse(t.getScadenza(), DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+                if (t.getScadenza().matches("\\d{4}-\\d{2}-\\d{2}")) {
+                    LocalDate.parse(t.getScadenza());
+                } else {
+                    LocalDate.parse(t.getScadenza(), DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+                }
             } catch (DateTimeParseException e) {
                 throw new DAOException("Data non valida: " + t.getScadenza());
             }
