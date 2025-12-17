@@ -52,7 +52,7 @@ public class DAODeadlineTest {
             dao.insert(taskScaduto);
         });
 
-        // 3. Verifica del messaggio (Opzionale, ma consigliato)
+        // 3. Verifica del messaggio
         System.out.println("Eccezione catturata: " + exception.getMessage());
         assertTrue(exception.getMessage().contains("ERRORE BLOCCANTE") || exception.getMessage().contains("passato"),
                 "Il messaggio d'errore dovrebbe spiegare il motivo del blocco");

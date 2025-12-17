@@ -29,10 +29,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Controller per la finestra di dialogo di modifica/creazione di un task.
+ * Controller per la finestra di dialogo di modifica e creazione di un Task.
  * <p>
- * Questa classe gestisce l'interazione con l'utente per la modifica delle proprietà di un {@link Tasks},
- * inclusi titolo, descrizione, categoria, priorità, scadenza e la gestione degli allegati (aggiunta, rimozione e apertura).
+ * Questa classe gestisce l'interazione con l'utente per inserire o modificare i dettagli di un'attività,
+ * tra cui titolo, descrizione, categoria, priorità, data di scadenza e allegati.
+ * Implementa logiche per la validazione dei dati e la gestione dei file allegati (aggiunta/rimozione).
  * </p>
  */
 public class TaskEditDialogController {
@@ -51,15 +52,15 @@ public class TaskEditDialogController {
     private boolean okClicked = false;
     private MainApp mainApp;
 
-    /** Buffer per memorizzare gli allegati aggiunti durante la sessione corrente, prima del salvataggio definitivo. */
+    /** Buffer temporaneo per i nuovi allegati aggiunti ma non ancora salvati nel DB. */
     private List<Allegati> newAttachmentsBuffer = new ArrayList<>();
 
-    /** Buffer per memorizzare gli allegati rimossi durante la sessione corrente, da eliminare dal DB al salvataggio. */
+    /** Buffer temporaneo per gli allegati rimossi dall'interfaccia, da cancellare dal DB al salvataggio. */
     private List<Allegati> attachmentsToDelete = new ArrayList<>();
 
     /**
      * Metodo di inizializzazione chiamato automaticamente dopo il caricamento del file FXML.
-     * Configura i componenti UI come ComboBox, DatePicker e la lista degli allegati.
+     * Configura i componenti UI (ComboBox, DatePicker, ListView).
      */
     @FXML
     private void initialize() {
@@ -69,8 +70,29 @@ public class TaskEditDialogController {
     }
 
     /**
-     * Configura il DatePicker per la scadenza.
-     * Disabilita la modifica manuale del testo e colora di rosso le date passate.
+     * Metodo helper "intelligente" per il parsing della data.
+     * Tenta di leggere la data sia nel formato standard ISO (yyyy-MM-dd) usato dal Database,
+     * sia nel formato localizzato (es. dd/MM/yyyy) usato dall'interfaccia.
+     *
+     * @param dateString La stringa che rappresenta la data.
+     * @return L'oggetto {@link LocalDate} o null se il parsing fallisce.
+     */
+    private LocalDate smartParse(String dateString) {
+        if (dateString == null || dateString.isEmpty()) return null;
+        try {
+            return LocalDate.parse(dateString); // Prova formato ISO (DB standard)
+        } catch (Exception e) {
+            try {
+                return DateUtil.parse(dateString); // Prova formato Italiano (DateUtil)
+            } catch (Exception ex) {
+                return null;
+            }
+        }
+    }
+
+    /**
+     * Configura il comportamento del DatePicker.
+     * Disabilita le date passate e l'editing manuale del testo.
      */
     private void setupDatePicker() {
         if (scadenzaField != null) {
@@ -91,8 +113,7 @@ public class TaskEditDialogController {
 
     /**
      * Configura la ListView degli allegati con una CellFactory personalizzata.
-     * Ogni cella mostra il nome del file e un pulsante per la rimozione.
-     * Gestisce anche il doppio click per l'apertura del file.
+     * Definisce l'aspetto di ogni riga (Nome file + pulsante Cancella) e gestisce gli eventi.
      */
     private void setupAttachmentList() {
         if (attachmentListView != null) {
@@ -100,7 +121,6 @@ public class TaskEditDialogController {
                 @Override
                 protected void updateItem(Allegati item, boolean empty) {
                     super.updateItem(item, empty);
-
                     if (empty || item == null) {
                         setText(null);
                         setGraphic(null);
@@ -112,7 +132,7 @@ public class TaskEditDialogController {
                         Label lblName = new Label("📎 " + item.getNomeFile());
                         lblName.setMaxWidth(Double.MAX_VALUE);
 
-                        // Colora di verde i nuovi allegati, viola quelli esistenti
+                        // Colora di verde i nuovi file, viola quelli già esistenti
                         if (newAttachmentsBuffer.contains(item)) {
                             lblName.setStyle("-fx-text-fill: #50fa7b;");
                         } else {
@@ -125,7 +145,7 @@ public class TaskEditDialogController {
                         Button btnDelete = new Button("✖");
                         btnDelete.setStyle("-fx-background-color: transparent; -fx-text-fill: #ff5555; -fx-font-weight: bold; -fx-cursor: hand;");
 
-                        // Logica di rimozione allegato
+                        // Azione pulsante Cancella
                         btnDelete.setOnAction(event -> {
                             getListView().getItems().remove(item);
                             if (newAttachmentsBuffer.contains(item)) {
@@ -153,8 +173,8 @@ public class TaskEditDialogController {
     }
 
     /**
-     * Configura e popola le ComboBox per Priorità e Categorie.
-     * Carica le categorie dal database tramite {@link DAOCategorie}.
+     * Popola le ComboBox per la priorità e le categorie.
+     * Le categorie vengono caricate dal database.
      */
     private void setupComboBoxes() {
         priorityComboBox.getItems().clear();
@@ -170,7 +190,6 @@ public class TaskEditDialogController {
             showAlert(AlertType.ERROR, "Errore caricamento categorie: " + e.getMessage());
         }
 
-        // Converter per mostrare solo il nome della categoria nella ComboBox
         categoryComboBox.setConverter(new StringConverter<>() {
             @Override public String toString(Categorie c) { return c == null ? "" : c.getNomeCategoria(); }
             @Override public Categorie fromString(String string) { return new Categorie(string, null); }
@@ -178,39 +197,33 @@ public class TaskEditDialogController {
         categoryComboBox.getSelectionModel().selectFirst();
     }
 
-    /**
-     * Imposta lo stage della finestra di dialogo.
-     * @param dialogStage Lo stage da associare.
-     */
+    /** Imposta lo stage del dialogo. */
     public void setDialogStage(Stage dialogStage) { this.dialogStage = dialogStage; }
 
-    /**
-     * Imposta il riferimento all'applicazione principale.
-     * @param mainApp L'istanza di MainApp.
-     */
+    /** Imposta il riferimento all'applicazione principale. */
     public void setMainApp(MainApp mainApp) { this.mainApp = mainApp; }
 
-    /**
-     * Restituisce true se l'utente ha cliccato OK, false altrimenti.
-     * @return boolean stato del click su OK.
-     */
+    /** Restituisce true se l'utente ha confermato con OK. */
     public boolean isOkClicked() { return okClicked; }
 
     /**
-     * Imposta il task da modificare e popola i campi della form con i suoi dati.
-     * Carica anche gli allegati associati dal database.
+     * Imposta il task da visualizzare/modificare nella finestra.
+     * Popola i campi con i valori esistenti e carica gli allegati.
      *
-     * @param task Il task da modificare.
+     * @param task L'oggetto Task da modificare.
      */
     public void setTask(Tasks task) {
         this.task = task;
 
         titoloField.setText(task.getTitolo());
         descrizioneField.setText(task.getDescrizione());
-        scadenzaField.setValue(DateUtil.parse(task.getScadenza()));
+
+        // Utilizza smartParse per gestire correttamente il formato data proveniente dal DB
+        scadenzaField.setValue(smartParse(task.getScadenza()));
+
         priorityComboBox.setValue(task.getPriorita());
 
-        // Seleziona la categoria corretta nella ComboBox
+        // Seleziona la categoria corretta
         if (task.getIdCategoria() != null) {
             for (Categorie c : categoryComboBox.getItems()) {
                 if (c.getIdCategoria() != null && c.getIdCategoria().equals(task.getIdCategoria())) {
@@ -226,7 +239,7 @@ public class TaskEditDialogController {
     }
 
     /**
-     * Carica gli allegati associati al task corrente dal database e li visualizza nella lista.
+     * Carica gli allegati associati al task dal database.
      */
     private void loadAttachments() {
         if (task.getIdTask() == null) return;
@@ -241,9 +254,8 @@ public class TaskEditDialogController {
     }
 
     /**
-     * Gestisce l'aggiunta di un nuovo allegato.
-     * Apre un FileChooser, copia il file selezionato nella cartella locale "attachments"
-     * e crea un nuovo oggetto {@link Allegati} nel buffer.
+     * Gestisce l'aggiunta di un nuovo allegato tramite FileChooser.
+     * Copia il file nella cartella locale "attachments" e lo aggiunge al buffer.
      */
     @FXML
     private void handleAddAttachment() {
@@ -257,7 +269,7 @@ public class TaskEditDialogController {
                 File destDir = new File(projectPath, "attachments");
                 if (!destDir.exists()) destDir.mkdir();
 
-                // Genera nome file univoco con timestamp
+                // Nome univoco per evitare sovrascritture
                 String newFileName = System.currentTimeMillis() + "_" + selected.getName();
                 File destFile = new File(destDir, newFileName);
                 Files.copy(selected.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
@@ -267,7 +279,6 @@ public class TaskEditDialogController {
                 nuovoAllegato.setNomeFile(selected.getName());
                 nuovoAllegato.setPercorsoFile(destFile.getAbsolutePath());
 
-                // Estrai estensione file
                 String ext = "";
                 int i = newFileName.lastIndexOf('.');
                 if (i > 0) ext = newFileName.substring(i+1);
@@ -283,9 +294,8 @@ public class TaskEditDialogController {
     }
 
     /**
-     * Tenta di aprire il file specificato utilizzando l'applicazione predefinita del sistema operativo.
-     *
-     * @param path Il percorso assoluto del file da aprire.
+     * Apre il file specificato con l'applicazione di sistema predefinita.
+     * @param path Percorso del file.
      */
     private void openFile(String path) {
         if (path == null || path.isEmpty()) return;
@@ -303,7 +313,8 @@ public class TaskEditDialogController {
 
     /**
      * Gestisce il click sul pulsante OK.
-     * Valida l'input, aggiorna l'oggetto Task con i nuovi dati e salva le modifiche agli allegati nel database.
+     * Valida i dati, aggiorna l'oggetto Task con i valori inseriti (convertendo la data in formato ISO)
+     * e salva le modifiche agli allegati nel database.
      */
     @FXML
     private void handleOk() {
@@ -311,9 +322,9 @@ public class TaskEditDialogController {
             task.setTitolo(titoloField.getText());
             task.setDescrizione(descrizioneField.getText());
 
-            // Gestione data opzionale
+            // IMPORTANTE: Salva la data in formato ISO (yyyy-MM-dd) per compatibilità con il DB MySQL
             if (scadenzaField.getValue() != null) {
-                task.setScadenza(DateUtil.format(scadenzaField.getValue()));
+                task.setScadenza(scadenzaField.getValue().toString());
             } else {
                 task.setScadenza(null);
             }
@@ -327,16 +338,15 @@ public class TaskEditDialogController {
                 task.setIdCategoria(null);
             }
 
-            // Salvataggio modifiche allegati
+            // Gestione persistenza allegati
             try {
-                // 1. Elimina quelli rimossi
+                // Elimina quelli rimossi
                 for (Allegati a : attachmentsToDelete) {
                     if (a.getIdAllegato() != 0) {
                         DAOAllegati.getInstance().delete(a.getIdAllegato());
                     }
                 }
-
-                // 2. Aggiungi i nuovi
+                // Inserisce i nuovi
                 if (task.getIdTask() != null && !newAttachmentsBuffer.isEmpty()) {
                     for (Allegati a : newAttachmentsBuffer) {
                         a.setIdTask(task.getIdTask());
@@ -353,16 +363,12 @@ public class TaskEditDialogController {
         }
     }
 
-    /**
-     * Chiude la finestra di dialogo senza salvare le modifiche.
-     */
+    /** Chiude la finestra senza salvare. */
     @FXML private void handleCancel() { dialogStage.close(); }
 
     /**
-     * Valida l'input dell'utente nei campi di testo.
-     * Controlla che il titolo non sia vuoto, la data non sia nel passato e la priorità sia selezionata.
-     *
-     * @return true se l'input è valido, false altrimenti.
+     * Verifica la validità dei campi di input.
+     * @return true se i dati sono validi, false altrimenti.
      */
     private boolean isInputValid() {
         String errorMessage = "";
@@ -381,20 +387,14 @@ public class TaskEditDialogController {
         return true;
     }
 
-    /**
-     * Mostra un alert di errore o informazione.
-     * @param type Tipo di alert (es. ERROR, INFORMATION).
-     * @param msg Messaggio da visualizzare.
-     */
+    /** Mostra un alert all'utente. */
     private void showAlert(AlertType type, String msg) {
         Alert alert = new Alert(type, msg);
         alert.setHeaderText(null);
         alert.showAndWait();
     }
 
-    /**
-     * Pulisce il campo della data di scadenza.
-     */
+    /** Pulisce il campo della data di scadenza. */
     @FXML
     private void handleClearDate() {
         scadenzaField.setValue(null);

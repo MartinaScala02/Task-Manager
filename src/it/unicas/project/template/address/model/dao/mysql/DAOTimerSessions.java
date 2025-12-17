@@ -12,10 +12,18 @@ import java.util.List;
 import java.util.logging.Logger;
 
 /**
- * Data Access Object (DAO) per la gestione della tabella 'TimerSessions'.
+ * Data Access Object (DAO) concreto per la gestione della tabella 'TimerSessions'.
  * <p>
- * Gestisce il ciclo di vita delle sessioni di timer (Start, Stop, Update, Delete)
- * e la conversione tra i tipi SQL (Timestamp) e Java (LocalDateTime).
+ * Questa classe gestisce l'interazione con il database MySQL per le sessioni di timer.
+ * Include funzionalità per creare, leggere, aggiornare ed eliminare (CRUD) le sessioni,
+ * oltre a gestire lo stop delle sessioni attive e il calcolo dei totali.
+ * </p>
+ * <p>
+ * <strong>Nota sulla Sincronizzazione Temporale:</strong><br>
+ * A differenza delle implementazioni standard, questa classe utilizza formattatori di data
+ * per inviare al database gli orari esatti calcolati dall'applicazione Java (client).
+ * Questo previene disallineamenti tra il tempo visualizzato nel timer dell'interfaccia
+ * e il tempo effettivamente registrato nel database.
  * </p>
  */
 public class DAOTimerSessions implements DAO<TimerSessions> {
@@ -23,11 +31,14 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
     private static DAOTimerSessions instance = null;
     private static Logger logger = null;
 
+    /** Formatter per garantire la compatibilità delle date con il formato DATETIME di MySQL. */
+    private static final DateTimeFormatter SQL_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
     private DAOTimerSessions() {}
 
     /**
      * Restituisce l'istanza Singleton della classe.
-     * @return L'istanza di DAOTimerSessions.
+     * @return L'unica istanza di DAOTimerSessions.
      */
     public static DAOTimerSessions getInstance() {
         if (instance == null) {
@@ -37,16 +48,13 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
         return instance;
     }
 
-
     /**
-     * Recupera la lista delle sessioni dal database.
-     * <p>
-     * Converte automaticamente i {@link java.sql.Timestamp} del database in {@link java.time.LocalDateTime}.
-     * </p>
+     * Recupera una lista di sessioni dal database filtrata in base ai parametri forniti.
      *
-     * @param t Oggetto filtro (opzionale). Filtra per idTask o per nome (LIKE).
-     * @return Una lista di oggetti TimerSessions.
-     * @throws DAOException In caso di errore SQL.
+     * @param t Oggetto {@link TimerSessions} usato come filtro.
+     * Può filtrare per {@code idTask} o per {@code nome} (ricerca parziale).
+     * @return Una lista di sessioni trovate.
+     * @throws DAOException In caso di errori di connessione o query SQL.
      */
     @Override
     public List<TimerSessions> select(TimerSessions t) throws DAOException {
@@ -93,13 +101,14 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
     }
 
     /**
-     * Avvia una nuova sessione di timer (INSERT).
+     * Inserisce una nuova sessione di timer nel database (START).
      * <p>
-     * Utilizza la funzione SQL {@code NOW()} per registrare l'orario di inizio lato server.
+     * Se l'oggetto passato ha un orario di inizio impostato (da Java), usa quello.
+     * Altrimenti usa la funzione SQL {@code NOW()} come fallback.
      * </p>
      *
-     * @param t La sessione da inserire (richiede idTask valido).
-     * @throws DAOException Se i dati sono invalidi o la query fallisce.
+     * @param t La sessione da inserire.
+     * @throws DAOException Se i dati sono invalidi (es. idTask mancante).
      */
     @Override
     public void insert(TimerSessions t) throws DAOException {
@@ -110,8 +119,14 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
             st = DAOMySQLSettings.getStatement();
             String nomeSafe = (t.getNome() != null) ? t.getNome().replace("'", "\\'") : "";
 
-            // Usiamo NOW() per default se l'inizio è null
-            String inizioVal = "NOW()";
+            // Determina se usare l'orario Java (preciso) o Server (fallback)
+            String inizioVal;
+            if (t.getInizio() != null) {
+                inizioVal = "'" + t.getInizio().format(SQL_FMT) + "'";
+            } else {
+                inizioVal = "NOW()";
+            }
+
             String query = "INSERT INTO TimerSessions (idTask, nome, inizio) VALUES ("
                     + t.getIdTask() + ", '"
                     + nomeSafe + "', "
@@ -136,8 +151,8 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
     /**
      * Elimina una sessione dal database.
      *
-     * @param t La sessione da eliminare (richiede idSession).
-     * @throws DAOException In caso di errore SQL.
+     * @param t La sessione da eliminare (necessario idSession).
+     * @throws DAOException In caso di errori SQL.
      */
     @Override
     public void delete(TimerSessions t) throws DAOException {
@@ -160,7 +175,7 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
     /**
      * Aggiorna i dati di una sessione esistente.
      * <p>
-     * Ricalcola la durata usando la funzione SQL {@code TIMESTAMPDIFF} se vengono fornite nuove date di inizio/fine.
+     * Ricalcola automaticamente la durata (campo 'durata') se vengono modificati gli orari di inizio/fine.
      * </p>
      *
      * @param t La sessione con i dati aggiornati.
@@ -176,19 +191,14 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
 
             String nomeSafe = (t.getNome() != null) ? t.getNome().replace("'", "\\'") : "";
 
-            // FORMATTER PER LE DATE
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
-            String startStr = (t.getInizio() != null) ? "'" + t.getInizio().format(formatter) + "'" : "NULL";
-            String endStr = (t.getFine() != null) ? "'" + t.getFine().format(formatter) + "'" : "NULL";
+            String startStr = (t.getInizio() != null) ? "'" + t.getInizio().format(SQL_FMT) + "'" : "NULL";
+            String endStr = (t.getFine() != null) ? "'" + t.getFine().format(SQL_FMT) + "'" : "NULL";
 
             String query = "UPDATE TimerSessions SET "
                     + "nome = '" + nomeSafe + "', "
                     + "inizio = " + startStr + ", "
                     + "fine = " + endStr;
 
-            // Ricalcolo della durata
-            // Se inizio e fine sono presenti, calcoliamo la differenza in secondi, altrimenti durata = 0
             if (t.getInizio() != null && t.getFine() != null) {
                 query += ", durata = TIMESTAMPDIFF(SECOND, " + startStr + ", " + endStr + ") ";
             } else {
@@ -206,16 +216,16 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
         }
     }
 
-
     /**
-     * Ferma una sessione attiva (STOP).
+     * Ferma una sessione timer attiva (STOP).
      * <p>
-     * Imposta il campo 'fine' a {@code NOW()} e calcola la durata automaticamente tramite SQL.
+     * Aggiorna il record impostando la data di fine e calcolando la durata.
+     * Accetta un orario di fine esplicito da Java per garantire la massima precisione rispetto al timer visuale.
      * </p>
      *
-     * @param idSession    L'ID della sessione da fermare.
-     * @param endLocalTime Orario di fine (parametro opzionale, nel metodo si usa NOW()).
-     * @throws DAOException In caso di errore SQL o ID non valido.
+     * @param idSession    L'ID della sessione da terminare.
+     * @param endLocalTime L'orario di fine calcolato dall'interfaccia Java. Se null, usa NOW().
+     * @throws DAOException In caso di errori SQL.
      */
     public void stopSession(int idSession, LocalDateTime endLocalTime) throws DAOException {
         if (idSession <= 0) throw new DAOException("ID Sessione non valido.");
@@ -224,9 +234,12 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
         try {
             st = DAOMySQLSettings.getStatement();
 
+            // Usa l'orario passato da Java
+            String endStr = (endLocalTime != null) ? "'" + endLocalTime.format(SQL_FMT) + "'" : "NOW()";
+
             String query = "UPDATE TimerSessions SET " +
-                    "fine = NOW(), " +
-                    "durata = TIMESTAMPDIFF(SECOND, inizio, NOW()) " +
+                    "fine = " + endStr + ", " +
+                    "durata = TIMESTAMPDIFF(SECOND, inizio, " + endStr + ") " +
                     "WHERE idSession = " + idSession;
 
             logger.info("SQL Stop Timer: " + query);
@@ -240,14 +253,11 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
     }
 
     /**
-     * Restituisce la somma totale dei secondi spesi su un task.
-     * <p>
-     * Considera solo le sessioni concluse (dove il campo 'fine' non è NULL).
-     * </p>
+     * Calcola il tempo totale speso su un task specifico.
      *
      * @param idTask L'ID del task.
-     * @return Il totale dei secondi (long).
-     * @throws DAOException In caso di errore SQL.
+     * @return La somma delle durate in secondi (long).
+     * @throws DAOException In caso di errori SQL.
      */
     public long getSommaDurataPerTask(int idTask) throws DAOException {
         Statement st = null;
@@ -255,8 +265,6 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
 
         try {
             st = DAOMySQLSettings.getStatement();
-            // TIMESTAMPDIFF(SECOND, inizio, fine) calcola i secondi tra le due date
-            // SUM(...) somma tutti i risultati
             String sql = "SELECT SUM(TIMESTAMPDIFF(SECOND, inizio, fine)) as totale " +
                     "FROM TimerSessions " +
                     "WHERE idTask = " + idTask + " AND fine IS NOT NULL";
@@ -264,7 +272,7 @@ public class DAOTimerSessions implements DAO<TimerSessions> {
             ResultSet rs = st.executeQuery(sql);
 
             if (rs.next()) {
-                totaleSecondi = rs.getLong("totale"); // Se è null (nessuna sessione), restituisce 0
+                totaleSecondi = rs.getLong("totale");
             }
             rs.close();
 

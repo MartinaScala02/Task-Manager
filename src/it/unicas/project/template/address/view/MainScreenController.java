@@ -529,21 +529,36 @@ public class MainScreenController {
 
         // Conta quanti task scadono oggi, domani o sono scaduti e NON sono completati
         boolean hasUrgentTasks = tasksListHelper.getTasks().stream().anyMatch(t -> {
-            if (t.getCompletamento()) return false;
+            if (t.getCompletamento()) return false; // Ignora completati
             if (t.getScadenza() == null || t.getScadenza().isEmpty()) return false;
 
-            try {
-                LocalDate due = it.unicas.project.template.address.util.DateUtil.parse(t.getScadenza());
-                if (due == null) return false;
-                // Urgente se: è scaduto OPPURE scade oggi OPPURE scade domani
-                return !due.isAfter(tomorrow);
-            } catch (Exception e) {
-                return false;
-            }
+            // MODIFICA: Usiamo smartParse per essere sicuri di leggere qualsiasi formato
+            LocalDate due = smartParse(t.getScadenza());
+
+            if (due == null) return false;
+
+            // Urgente se: è scaduto OPPURE scade oggi OPPURE scade domani
+            return !due.isAfter(tomorrow);
         });
 
+        // Mostra o nascondi il pallino
         if (notificationBadge != null) {
             notificationBadge.setVisible(hasUrgentTasks);
+        }
+    }
+    // Metodo helper per gestire date miste (ISO e Italiane)
+    private LocalDate smartParse(String dateString) {
+        if (dateString == null || dateString.isEmpty()) return null;
+        try {
+            // 1. Prova formato ISO (yyyy-MM-dd)
+            return LocalDate.parse(dateString);
+        } catch (Exception e) {
+            try {
+                // 2. Se fallisce, prova formato DateUtil (dd/MM/yyyy)
+                return it.unicas.project.template.address.util.DateUtil.parse(dateString);
+            } catch (Exception ex) {
+                return null; // Data illeggibile
+            }
         }
     }
 }

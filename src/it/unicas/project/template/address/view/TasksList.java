@@ -346,7 +346,7 @@ public class TasksList {
         });
     }
 
-    // --- Setters Filtri ---
+
     public void setFilterCategory(Categorie c) { this.filterCategory = c; reloadTasksFromDB(); }
     public void setFilterStatus(Boolean s) { this.filterStatus = s; reloadTasksFromDB(); }
     public void setFilterPriority(String p) { this.filterPriority = p; reloadTasksFromDB(); }
