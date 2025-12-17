@@ -10,7 +10,14 @@ import javafx.stage.Stage;
 import it.unicas.project.template.address.model.dao.mysql.DAOUtenti;
 import it.unicas.project.template.address.model.dao.DAOException;
 
-
+/**
+ * Controller per la finestra di dialogo di modifica dei dati utente.
+ * <p>
+ * Questa classe gestisce l'interazione con l'utente per la modifica delle informazioni
+ * di un oggetto {@link Utenti} (nome, cognome, email, password).
+ * Include una logica per visualizzare o nascondere la password tramite un pulsante toggle
+ * e gestisce la validazione dei campi prima del salvataggio nel database.
+ */
 public class UtentiEditDialogController {
 
     @FXML
@@ -20,27 +27,34 @@ public class UtentiEditDialogController {
     @FXML
     private TextField emailField;
     @FXML
-    private PasswordField PasswordField;
+    private PasswordField PasswordField; // Campo per password mascherata
     @FXML
-    private TextField pswVisibleField;
+    private TextField pswVisibleField; // Campo per password visibile
     @FXML
-    private ToggleButton showpswBtn;
+    private ToggleButton showpswBtn; // Pulsante per mostrare/nascondere la password
 
     private Stage dialogStage;
     private Utenti user;
     private boolean okClicked = false;
     private boolean verifyLen = true;
 
+    /**
+     * Inizializza la classe controller. Questo metodo viene chiamato automaticamente
+     * dopo che il file fxml è stato caricato.
+     * <p>
+     * Configura il binding bidirezionale tra il campo password mascherato e quello visibile
+     * e gestisce la logica del pulsante "Mostra Password" per alternare la visibilità.
+     */
     @FXML
-    private void initialize(){
-        //sincronizza i due campi (testo condiviso)
+    private void initialize() {
+        // Sincronizza i due campi (testo condiviso)
         pswVisibleField.textProperty().bindBidirectional(PasswordField.textProperty());
 
-        //all'avvio mostra solo il PasswordField
+        // All'avvio mostra solo il PasswordField
         pswVisibleField.setVisible(false);
         pswVisibleField.setManaged(false);
 
-        //toggle: quando selezionato mostra il TextField, altrimenti mostra il PasswordField
+        // Toggle: quando selezionato mostra il TextField, altrimenti mostra il PasswordField
         showpswBtn.selectedProperty().addListener((obs, oldV, newV) -> {
             if (newV) {
                 pswVisibleField.setVisible(true);
@@ -58,27 +72,44 @@ public class UtentiEditDialogController {
                 PasswordField.positionCaret(PasswordField.getText().length());
             }
         });
-
     }
+
+    /**
+     * Imposta lo stage di questa finestra di dialogo.
+     *
+     * @param dialogStage Lo stage della finestra.
+     */
     public void setDialogStage(Stage dialogStage) {
         this.dialogStage = dialogStage;
     }
 
-    public boolean isOkClicked() { //chiamato quando l'utente ha premuto ok
+    /**
+     * Restituisce true se l'utente ha cliccato OK, false altrimenti.
+     *
+     * @return true se l'operazione è confermata.
+     */
+    public boolean isOkClicked() {
         return okClicked;
     }
 
+    /**
+     * Chiamato quando l'utente clicca su OK.
+     * <p>
+     * Verifica la validità dell'input, aggiorna l'oggetto {@link Utenti} con i nuovi dati
+     * e tenta di salvare le modifiche nel database tramite {@link DAOUtenti}.
+     * Se il salvataggio ha successo, chiude la finestra.
+     */
     @FXML
     private void handleOk() {
         if (isInputValid(verifyLen)) {
-            //copia i valori dai campi di testo all'oggetto user
+            // Copia i valori dai campi di testo all'oggetto user
             user.setNome(nomeField.getText());
             user.setCognome(cognomeField.getText());
             user.setEmail(emailField.getText());
             user.setPsw(PasswordField.getText());
 
             try {
-                DAOUtenti.getInstance().update(user); //salva nel database (aggiorna)
+                DAOUtenti.getInstance().update(user); // Salva nel database (aggiorna)
             } catch (DAOException e) {
                 Alert alert = new Alert(Alert.AlertType.ERROR);
                 alert.initOwner(dialogStage);
@@ -86,7 +117,7 @@ public class UtentiEditDialogController {
                 alert.setHeaderText("Non è stato possibile salvare le modifiche");
                 alert.setContentText(e.getMessage());
                 alert.showAndWait();
-                return; //esce senza chiudere il dialog
+                return; // Esce senza chiudere il dialog in caso di errore
             }
 
             okClicked = true;
@@ -94,15 +125,23 @@ public class UtentiEditDialogController {
         }
     }
 
-
+    /**
+     * Chiamato quando l'utente clicca su Annulla.
+     * Chiude la finestra senza salvare le modifiche.
+     */
     @FXML
-    private void handleCancel() { //chiude il dialog senza salvare
+    private void handleCancel() {
         dialogStage.close();
     }
 
-
-    private boolean isInputValid(boolean verifyLen) { //ritorna true se i campi sono validi
-        String errorMessage = ""; //stringa per accumulare i messaggi di errore
+    /**
+     * Valida l'input dell'utente nei campi di testo.
+     *
+     * @param verifyLen Se true, verifica anche che la lunghezza dei campi sia > 0.
+     * @return true se l'input è valido, false altrimenti.
+     */
+    private boolean isInputValid(boolean verifyLen) {
+        String errorMessage = ""; // Stringa per accumulare i messaggi di errore
 
         if (nomeField.getText() == null || (verifyLen && nomeField.getText().length() == 0)) {
             errorMessage += "Nome non valido!\n";
@@ -110,20 +149,17 @@ public class UtentiEditDialogController {
         if (cognomeField.getText() == null || (verifyLen && cognomeField.getText().length() == 0)) {
             errorMessage += "Cognome non valido!\n";
         }
-
         if (emailField.getText() == null || (verifyLen && emailField.getText().length() == 0)) {
             errorMessage += "Email non valida!\n";
         }
-
         if (PasswordField.getText() == null || (verifyLen && PasswordField.getText().length() == 0)) {
-            errorMessage += "psw non valida!\n";
+            errorMessage += "Password non valida!\n";
         }
 
-
-        if (errorMessage.length() == 0) { //se errorMessage è vuota, tutti i campi sono validi
-            return true; //non ci sono errori
-        } else { //se ci sono errori, mostra un alert
-
+        if (errorMessage.length() == 0) {
+            return true; // Non ci sono errori
+        } else {
+            // Se ci sono errori, mostra un alert
             Alert alert = new Alert(Alert.AlertType.ERROR);
             alert.initOwner(dialogStage);
             alert.setTitle("Campi non validi");
@@ -136,16 +172,19 @@ public class UtentiEditDialogController {
         }
     }
 
-
+    /**
+     * Imposta l'utente da modificare nella finestra di dialogo.
+     * Popola i campi di testo con i dati attuali dell'utente.
+     *
+     * @param user L'oggetto Utenti da modificare.
+     */
     public void setUser(Utenti user) {
-        this.user = user; //memorizza l'utente sul quale operare
+        this.user = user; // Memorizza l'utente sul quale operare
 
-        //popola i campi di testo con i dati dell'utente
+        // Popola i campi di testo con i dati dell'utente
         nomeField.setText(user.getNome());
         cognomeField.setText(user.getCognome());
         emailField.setText(user.getEmail());
         PasswordField.setText(user.getPsw());
-
     }
-
 }

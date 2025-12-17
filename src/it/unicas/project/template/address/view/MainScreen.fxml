@@ -90,11 +90,10 @@
                 <Region HBox.hgrow="ALWAYS" />
 
                 <HBox alignment="CENTER" spacing="15" styleClass="profile-container">
-                    <HBox alignment="CENTER_LEFT" spacing="10" style="-fx-background-color: #2F223D; -fx-background-radius: 8; -fx-padding: 8;">
-                        <Region prefHeight="32" prefWidth="32" styleClass="profile-placeholder" />
-                        <VBox alignment="CENTER_LEFT">
-                            <Label fx:id="usernameLabelHeader" style="-fx-font-size: 13px; -fx-font-weight: bold;" styleClass="label-bright" text="Nome Utente" />
-                        </VBox>
+                    <HBox alignment="CENTER" spacing="15" styleClass="profile-container">
+                        <HBox alignment="CENTER" style="-fx-background-color: #2F223D; -fx-background-radius: 8; -fx-padding: 8 20;">
+                            <Label fx:id="usernameLabelHeader" style="-fx-font-size: 18px; -fx-font-weight: bold;" styleClass="label-bright" />
+                        </HBox>
                     </HBox>
                 </HBox>
             </HBox>

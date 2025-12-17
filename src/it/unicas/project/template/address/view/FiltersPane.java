@@ -10,22 +10,42 @@ import javafx.scene.layout.VBox;
 
 import java.util.List;
 
+/**
+ * Gestisce la logica dei filtri nell'interfaccia grafica dei task.
+ * <p>
+ * La classe collega componenti UI come ComboBox, DatePicker, ToggleButton e menu categorie
+ * con {@link TasksList}, che applica effettivamente i filtri.
+ * Si occupa anche di caricare e gestire le categorie dal database e aggiornare la UI di conseguenza.
+ * </p>
+ */
 public class FiltersPane {
 
-    //per l'UI (final-> riferimenti immutabili dopo costruzione)
     private final ComboBox<String> filterPriorityCombo;
     private final DatePicker filterDatePicker;
     private final ToggleButton btnFilterTodo;
     private final ToggleButton btnFilterDone;
     private final VBox categoryMenuContainer;
-    private final ComboBox<Categorie> formCategoryCombo; //serve per aggiornare anche la combobox nel form di creazione
-
-
+    private final ComboBox<Categorie> formCategoryCombo;
     private final TasksList tasksListHelper;
 
-    //costruttore
-    public FiltersPane(ComboBox<String> filterPriorityCombo, DatePicker filterDatePicker, ToggleButton btnFilterTodo, ToggleButton btnFilterDone, VBox categoryMenuContainer, ComboBox<Categorie> formCategoryCombo, TasksList tasksListHelper) {
-
+    /**
+     * Costruisce un FiltersPane collegando i componenti UI e l'helper della lista task.
+     *
+     * @param filterPriorityCombo   ComboBox per la priorità
+     * @param filterDatePicker      DatePicker per la data
+     * @param btnFilterTodo         ToggleButton per TODO
+     * @param btnFilterDone         ToggleButton per DONE
+     * @param categoryMenuContainer VBox del menu categorie
+     * @param formCategoryCombo     ComboBox categorie nel form
+     * @param tasksListHelper       Helper per gestire i task e i filtri
+     */
+    public FiltersPane(ComboBox<String> filterPriorityCombo,
+                       DatePicker filterDatePicker,
+                       ToggleButton btnFilterTodo,
+                       ToggleButton btnFilterDone,
+                       VBox categoryMenuContainer,
+                       ComboBox<Categorie> formCategoryCombo,
+                       TasksList tasksListHelper) {
         this.filterPriorityCombo = filterPriorityCombo;
         this.filterDatePicker = filterDatePicker;
         this.btnFilterTodo = btnFilterTodo;
@@ -37,63 +57,77 @@ public class FiltersPane {
         initialize();
     }
 
+    /**
+     * Inizializza il pannello dei filtri impostando listener e caricando le categorie.
+     */
     private void initialize() {
         setupListeners();
-        refreshCategories(); // Carica le categorie all'avvio
+        refreshCategories();
     }
 
+    /**
+     * Configura i listener dei componenti UI per aggiornare i filtri in TasksList.
+     */
     private void setupListeners() {
-        //filtro per priorità
         if (filterPriorityCombo != null) {
-            filterPriorityCombo.getItems().setAll("TUTTE", "ALTA", "MEDIA", "BASSA"); //setta gli items della combobox
-            filterPriorityCombo.valueProperty().addListener((o, oldV, newV) -> //il listener sta 'in ascolto', ogni volta che l'utente cambia scelta chiama automaticamente la funzione passata (taskslisthelper)
-                    tasksListHelper.setFilterPriority((newV == null || newV.equals("TUTTE")) ? null : newV)); //se si selezoina tutte non si filtra altrimenti si applica il filtro con la priorità scelta con setfilterpriority (devo mettere tutte come scelta finta perchè nella combobox non posso non scegliere)
+            filterPriorityCombo.getItems().setAll("TUTTE", "ALTA", "MEDIA", "BASSA");
+            filterPriorityCombo.valueProperty().addListener((o, oldV, newV) ->
+                    tasksListHelper.setFilterPriority(
+                            (newV == null || newV.equals("TUTTE")) ? null : newV
+                    )
+            );
         }
-       //filtro per data
+
         if (filterDatePicker != null) {
             filterDatePicker.valueProperty().addListener((o, oldV, newV) ->
-                    tasksListHelper.setFilterDate(newV)); //posso lasciare il campo vuoto quindi non metto l'opzione finta
+                    tasksListHelper.setFilterDate(newV)
+            );
         }
     }
 
-   //gestione dello stato
+    /**
+     * Imposta il filtro sullo stato dei task.
+     *
+     * @param status {@code true} per DONE, {@code false} per TODO, {@code null} per nessun filtro
+     */
     public void setFilterStatus(Boolean status) {
-        tasksListHelper.setFilterStatus(status); //imposta il filtro sullo stato scelto
-        updateStatusButtons(status); //aggiorna l'interfaccia grafica per far vedere i filtri scelti
+        tasksListHelper.setFilterStatus(status);
+        updateStatusButtons(status);
     }
 
+    /**
+     * Aggiorna lo stile dei pulsanti di stato in base al filtro attivo.
+     *
+     * @param status stato del filtro
+     */
     private void updateStatusButtons(Boolean status) {
-        //reset stile
         String defaultStyle = "-fx-alignment: CENTER_LEFT;";
         if (btnFilterTodo != null) btnFilterTodo.setStyle(defaultStyle);
         if (btnFilterDone != null) btnFilterDone.setStyle(defaultStyle);
 
-
         if (status != null) {
-            ToggleButton activeBtn = status ? btnFilterDone : btnFilterTodo; //se status true mi evidenzia il pulsante done se false mi evidenzia il pulsante todo -> colora il pulsante corrispondente a quello selezionato
+            ToggleButton activeBtn = status ? btnFilterDone : btnFilterTodo;
             if (activeBtn != null) {
                 activeBtn.setStyle("-fx-background-color: #F071A7; -fx-text-fill: white; -fx-font-weight: bold;");
             }
         }
     }
 
-
+    /**
+     * Ricarica le categorie dal database e aggiorna la UI (ComboBox e menu laterale).
+     */
     public void refreshCategories() {
         try {
             List<Categorie> list = DAOCategorie.getInstance().select(null);
 
-            // 1. Aggiorna la ComboBox nel form di creazione
             if (formCategoryCombo != null) {
                 formCategoryCombo.setItems(FXCollections.observableArrayList(list));
             }
 
-            // 2. Aggiorna il Menu Laterale
             if (categoryMenuContainer != null) {
                 categoryMenuContainer.getChildren().clear();
 
-                // Link "Tutte"
                 Hyperlink allLink = new Hyperlink("Tutte le Categorie");
-                // Forza il colore bianco e rimuove la sottolineatura
                 allLink.setStyle("-fx-text-fill: white; -fx-underline: false;");
                 allLink.setOnAction(e -> resetAllFilters());
                 categoryMenuContainer.getChildren().add(allLink);
@@ -103,21 +137,14 @@ public class FiltersPane {
                     row.setAlignment(Pos.CENTER_LEFT);
 
                     Hyperlink link = new Hyperlink(c.getNomeCategoria());
-
-
                     link.setStyle("-fx-text-fill: white; -fx-underline: false;");
-
                     link.setOnAction(e -> {
                         tasksListHelper.setFilterCategory(c);
-
-                        link.setStyle("-fx-text-fill: white; -fx-underline: false;");
-
-                        // Reset visivo degli altri filtri
                         updateStatusButtons(null);
                     });
 
                     Button btnX = new Button("x");
-                    btnX.setStyle("-fx-text-fill: #e74c3c; -fx-background-color:transparent; -fx-font-weight: bold; -fx-border-color: transparent;");
+                    btnX.setStyle("-fx-text-fill: #e74c3c; -fx-background-color: transparent;");
                     btnX.setOnAction(e -> deleteCategory(c));
 
                     row.getChildren().addAll(link, btnX);
@@ -129,32 +156,39 @@ public class FiltersPane {
         }
     }
 
-    //DOMANDA: devo fare un controllo in più per la gestione dell'errore? fare check
+    /**
+     * Elimina una categoria dal database dopo conferma dell'utente.
+     *
+     * @param c categoria da eliminare
+     */
     private void deleteCategory(Categorie c) {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Eliminare categoria " + c.getNomeCategoria() + "?", ButtonType.YES, ButtonType.NO);
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                "Eliminare categoria " + c.getNomeCategoria() + "?",
+                ButtonType.YES, ButtonType.NO);
+
         alert.showAndWait();
+
         if (alert.getResult() == ButtonType.YES) {
             try {
                 DAOCategorie.getInstance().delete(c);
-                resetAllFilters(); //aggiorna l'interfaccia e ricarica la lista
+                resetAllFilters();
             } catch (Exception e) {
-                Alert error = new Alert(Alert.AlertType.ERROR, "Errore!!! Impossibile eliminare la categoria scelta.");
-                error.show();
+                new Alert(Alert.AlertType.ERROR,
+                        "Errore! Impossibile eliminare la categoria.").show();
             }
         }
     }
 
-
-
+    /**
+     * Resetta tutti i filtri e aggiorna l'interfaccia grafica.
+     */
     public void resetAllFilters() {
+        tasksListHelper.clearFilters();
 
-        tasksListHelper.clearFilters(); //reset della logica
-
-        //reset dell'UI
         if (filterPriorityCombo != null) filterPriorityCombo.getSelectionModel().selectFirst();
         if (filterDatePicker != null) filterDatePicker.setValue(null);
-        updateStatusButtons(null);
 
-        refreshCategories(); //ricarica la lista
+        updateStatusButtons(null);
+        refreshCategories();
     }
 }

@@ -11,52 +11,73 @@ import javafx.scene.control.Label;
 
 import java.util.Map;
 
+/**
+ * Controller per la visualizzazione delle statistiche utente.
+ * <p>
+ * Questa classe gestisce la logica dietro la schermata delle statistiche, caricando i dati
+ * dal database tramite {@link DAOStatistics} e popolando i grafici (PieChart, BarChart)
+ * e le etichette riassuntive (Task Aperti, Completati, Carico di Lavoro).
+ */
 public class TasksStatisticsController {
 
-    //Riferimenti agli oggetti nell'FXML
+    // --- Riferimenti agli oggetti FXML ---
+
+    /** Grafico a torta per la distribuzione delle priorità dei task. */
     @FXML
     private PieChart pieChartPriorita;
 
+    /** Grafico a barre per il tempo speso per ogni categoria. */
     @FXML
     private BarChart<String, Number> barChartCategorie;
 
+    /** Etichetta che mostra il numero totale di task aperti (non completati). */
     @FXML
     private Label lblTaskAperti;
 
+    /** Etichetta che mostra il numero totale di task completati. */
     @FXML
     private Label lblTaskCompletati;
 
+    /** Etichetta per avvisi sul carico di lavoro (es. "Leggero", "Pesante") basato sui task aperti. */
     @FXML
-    private Label lblWorkload; //Per avvisi sulle scadenze imminenti
+    private Label lblWorkload;
 
     /**
-     * Metodo chiamato automaticamente dopo il caricamento del file FXML.
+     * Metodo di inizializzazione chiamato automaticamente da JavaFX dopo il caricamento del file FXML.
+     * <p>
+     * Esegue il setup iniziale dei grafici, pulendo eventuali dati precedenti e configurando
+     * la visibilità della legenda.
      */
     @FXML
     private void initialize() {
-
-        //serve per fare setup iniziale dei grafici
-        //li pulisce in modo che non mostrino dati vecchi e imposta alcune proprietà
+        // Pulisce i grafici per evitare sovrapposizioni di dati vecchi
         pieChartPriorita.getData().clear();
         barChartCategorie.getData().clear();
         pieChartPriorita.setLegendVisible(true);
     }
 
     /**
-     * Questo metodo deve essere chiamato dal MainApp o dal controller principale
-     * quando si apre la dashboard, passando l'ID dell'utente loggato.
+     * Metodo principale per avviare il caricamento delle statistiche.
+     * <p>
+     * Deve essere chiamato dal controller principale (es. MainScreenController) quando si apre
+     * la finestra delle statistiche. Coordina il caricamento dei dati per:
+     * <ol>
+     * <li>Grafico a torta delle priorità.</li>
+     * <li>Grafico a barre del tempo per categoria.</li>
+     * <li>Etichette di riepilogo (Aperti/Chiusi e Workload).</li>
+     * </ol>
+     *
+     * @param idUtente L'ID dell'utente loggato di cui visualizzare le statistiche.
      */
-
-    //metodo principale per caricare statistiche
     public void loadStatistics(int idUtente) {
         try {
-            // 1. CARICAMENTO PIE CHART (Task per Priorità)
+            // 1. Caricamento Pie Chart (Task per Priorità)
             loadPriorityData(idUtente);
 
-            // 2. CARICAMENTO BAR CHART (Tempo per Categoria)
+            // 2. Caricamento Bar Chart (Tempo per Categoria)
             loadCategoryTimeData(idUtente);
 
-            // 3. AGGIORNAMENTO ETICHETTE (task Aperti vs Chiusi)
+            // 3. Aggiornamento Etichette (Aperti vs Chiusi e Workload)
             loadCompletionStats(idUtente);
 
         } catch (DAOException e) {
@@ -64,57 +85,84 @@ public class TasksStatisticsController {
         }
     }
 
-    // --- METODI DI SUPPORTO PRIVATI ---
-    //il throws serve per indicare che il metodo può generare un'eccezione di tipo DAOException -> chi chiama il metodo deve gestirla (fatto in loadStatistics)
-    //il daoexception serve per gestire gli errori di accesso al database -> gestito con un alert
+    // =================================================================================
+    // METODI DI SUPPORTO PRIVATI
+    // =================================================================================
+
+    /**
+     * Carica i dati per il grafico a torta (PieChart) che mostra la distribuzione dei task per priorità.
+     *
+     * @param idUtente L'ID dell'utente.
+     * @throws DAOException Se si verifica un errore durante l'interrogazione del database.
+     */
     private void loadPriorityData(int idUtente) throws DAOException {
-        Map<String, Integer> data = DAOStatistics.getInstance().getTaskCountByPriority(idUtente); //si recuperano i dati dal database (il metodo getTaskCountByPriority interroga il database per contare quantitativi di task per priorità)
+        // Recupera una mappa <Priorità, Conteggio> dal DAO
+        Map<String, Integer> data = DAOStatistics.getInstance().getTaskCountByPriority(idUtente);
         ObservableList<PieChart.Data> pieData = FXCollections.observableArrayList();
 
-        // Convertiamo la Mappa in dati per il grafico
-
-        for (Map.Entry<String, Integer> entry : data.entrySet()) { //modo per scorrere una mappa in java con entryset
-            pieData.add(new PieChart.Data(entry.getKey(), entry.getValue())); //entry.getKey() prende la priorità, entry.getValue() prende il conteggio
+        // Converte la mappa in dati compatibili con JavaFX PieChart
+        for (Map.Entry<String, Integer> entry : data.entrySet()) {
+            pieData.add(new PieChart.Data(entry.getKey(), entry.getValue()));
         }
 
-        pieChartPriorita.setData(pieData); //pieChartPriorita è l'oggetto grafico nell'FXML (il semplice pieData è un observablelist di dati per il grafico)
+        pieChartPriorita.getData().clear();
+        pieChartPriorita.setData(pieData);
         pieChartPriorita.setTitle("Task per Priorità");
     }
 
-    //metodo per caricare i dati del tempo speso per categoria
+    /**
+     * Carica i dati per il grafico a barre (BarChart) che mostra il tempo speso per ogni categoria.
+     * I dati temporali vengono convertiti da secondi a minuti per una migliore leggibilità.
+     *
+     * @param idUtente L'ID dell'utente.
+     * @throws DAOException Se si verifica un errore durante l'interrogazione del database.
+     */
     private void loadCategoryTimeData(int idUtente) throws DAOException {
-        Map<String, Long> data = DAOStatistics.getInstance().getTimeSpentByCategory(idUtente); //recupero dei dati dal database (somma del tempo speso per categoria in secondi) ((usiamo long perchè il tempo può essere grande)
-        XYChart.Series<String, Number> series = new XYChart.Series<>(); //serve per creare una serie di dati per il grafico a barre
+        // Recupera una mappa <NomeCategoria, SecondiTotali> dal DAO
+        Map<String, Long> data = DAOStatistics.getInstance().getTimeSpentByCategory(idUtente);
+        XYChart.Series<String, Number> series = new XYChart.Series<>();
         series.setName("Tempo Speso (Minuti)");
 
         for (Map.Entry<String, Long> entry : data.entrySet()) {
-            // Convertiamo i secondi in minuti per rendere il grafico leggibile (diviso 60)
+            // Converte i secondi in minuti
             double minuti = entry.getValue() / 60.0;
-            series.getData().add(new XYChart.Data<>(entry.getKey(), minuti)); //si prende la categoria e il tempo in minuti e si crea una nuova barra nel grafico
+            series.getData().add(new XYChart.Data<>(entry.getKey(), minuti));
         }
 
         barChartCategorie.getData().clear();
-        barChartCategorie.getData().add(series); //barchartcategorie è l'oggetto grafico nell'FXML
+        barChartCategorie.getData().add(series);
         barChartCategorie.setTitle("Tempo Speso per Categoria");
-        barChartCategorie.setAnimated(false); //togliamo perchè a volte l'animazione fa glitch se si ricarica spesso
+        // Disabilita l'animazione per evitare glitch grafici durante ricaricamenti frequenti
+        barChartCategorie.setAnimated(false);
     }
 
-
+    /**
+     * Carica le statistiche numeriche di completamento e calcola il "Carico di Lavoro" (Workload).
+     * <p>
+     * Aggiorna le label {@code lblTaskAperti}, {@code lblTaskCompletati} e costruisce un componente
+     * grafico personalizzato per {@code lblWorkload} che mostra sia il numero di task aperti
+     * che un giudizio testuale (es. "Leggero", "Pesante") con colori codificati.
+     *
+     * @param idUtente L'ID dell'utente.
+     * @throws DAOException Se si verifica un errore durante l'interrogazione del database.
+     */
     private void loadCompletionStats(int idUtente) throws DAOException {
-        // stats[0] = Aperti, stats[1] = Completati
+        // stats[0] = Task Aperti, stats[1] = Task Completati
         int[] stats = DAOStatistics.getInstance().getCompletionStats(idUtente);
         int taskAperti = stats[0];
+        int taskCompletati = stats[1];
 
         if (lblTaskAperti != null) lblTaskAperti.setText(String.valueOf(taskAperti));
-        if (lblTaskCompletati != null) lblTaskCompletati.setText(String.valueOf(stats[1]));
+        if (lblTaskCompletati != null) lblTaskCompletati.setText(String.valueOf(taskCompletati));
 
-        // --- LOGICA CARICO DI LAVORO ---
+        // --- Logica Calcolo Workload ---
         if (lblWorkload != null) {
             String testo;
             String colore;
 
+            // Definizione soglie per il carico di lavoro
             if (taskAperti == 0) {
-                testo = "Nessuno";
+                testo = "Niente da fare!";
                 colore = "#50fa7b"; // Verde
             } else if (taskAperti <= 4) {
                 testo = "Leggero";
@@ -127,28 +175,34 @@ public class TasksStatisticsController {
                 colore = "#ff5555"; // Rosso
             }
 
-            // --- CREAZIONE GRAFICA PERSONALIZZATA ---
+            // --- Creazione Grafica Personalizzata (Numero Grande + Testo Piccolo) ---
 
-            // 1. Etichetta per il NUMERO (Grande)
+            // 1. Label per il numero (Font grande)
             Label numLabel = new Label(String.valueOf(taskAperti));
             numLabel.setStyle("-fx-text-fill: " + colore + "; -fx-font-size: 42px; -fx-font-weight: bold;");
 
-            // 2. Etichetta per il TESTO (Piccolo)
+            // 2. Label per la descrizione (Font piccolo)
             Label textLabel = new Label(testo);
             textLabel.setStyle("-fx-text-fill: " + colore + "; -fx-font-size: 14px; -fx-opacity: 0.9;");
 
-            // 3. Contenitore Verticale (Mette uno sopra l'altro)
-            javafx.scene.layout.VBox box = new javafx.scene.layout.VBox(-5); // -5 riduce lo spazio tra i due
+            // 3. Contenitore Verticale (VBox)
+            javafx.scene.layout.VBox box = new javafx.scene.layout.VBox(-5);
             box.setAlignment(javafx.geometry.Pos.CENTER);
             box.getChildren().addAll(numLabel, textLabel);
 
-            // 4. Imposta il contenitore dentro la label originale
+            // 4. Inserimento del VBox dentro la Label originale
             lblWorkload.setGraphic(box);
-            lblWorkload.setText(""); // Pulisci il testo vecchio
+            lblWorkload.setText(""); // Rimuove eventuale testo preesistente
             lblWorkload.setContentDisplay(javafx.scene.control.ContentDisplay.CENTER);
         }
     }
 
+    /**
+     * Mostra una finestra di dialogo di errore.
+     *
+     * @param title   Il titolo della finestra di alert.
+     * @param content Il messaggio di dettaglio dell'errore.
+     */
     private void showAlert(String title, String content) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle("Errore");

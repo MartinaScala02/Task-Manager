@@ -2,7 +2,7 @@ package it.unicas.project.template.address;
 
 import java.io.File;
 import java.io.IOException;
-import java.sql.SQLException; // IMPORT AGGIUNTO
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 import java.util.prefs.Preferences;
@@ -29,19 +29,37 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 
+/**
+ * Classe principale dell'applicazione Task Manager.
+ * <p>
+ * Questa classe funge da punto di ingresso (Entry Point) per l'applicazione JavaFX e agisce da
+ * coordinatore centrale per la navigazione tra le diverse schermate (Login, Dashboard, Dialoghi).
+ * Gestisce inoltre il ciclo di vita dell'applicazione, la sessione dell'utente corrente e
+ * l'inizializzazione del layout principale.
+ */
 public class MainApp extends Application {
 
     private Stage primaryStage;
     private BorderPane rootLayout;
+
+    /** Utente attualmente loggato nel sistema. */
     private static Utenti currentUser = null;
 
     // Riferimento al controller principale per aggiornare la grafica
     private MainScreenController mainScreenController;
 
+    /**
+     * Restituisce l'utente attualmente loggato.
+     * @return L'oggetto {@link Utenti} della sessione corrente.
+     */
     public static Utenti getCurrentUser() {
         return currentUser;
     }
 
+    /**
+     * Imposta l'utente loggato nella sessione corrente.
+     * @param user L'oggetto {@link Utenti} da impostare come attivo.
+     */
     public static void setCurrentUser(Utenti user) {
         currentUser = user;
     }
@@ -49,12 +67,23 @@ public class MainApp extends Application {
     public MainApp() {
     }
 
-    private ObservableList<Utenti> colleghiData = FXCollections.observableArrayList();
+    private ObservableList<Utenti> utentiData = FXCollections.observableArrayList();
 
-    public ObservableList<Utenti> getColleghiData() {
-        return colleghiData;
+    /**
+     * Restituisce la lista osservabile degli utenti caricati.
+     * @return ObservableList di Utenti.
+     */
+    public ObservableList<Utenti> getUtentiData() {
+        return utentiData;
     }
 
+    /**
+     * Metodo di avvio dell'applicazione JavaFX.
+     * Inizializza lo stage primario, carica il layout di base, recupera i dati iniziali
+     * e mostra la schermata di login.
+     *
+     * @param primaryStage Lo stage principale fornito dalla piattaforma JavaFX.
+     */
     @Override
     public void start(Stage primaryStage) {
         this.primaryStage = primaryStage;
@@ -68,12 +97,16 @@ public class MainApp extends Application {
         primaryStage.show();
     }
 
+    /**
+     * Carica i dati iniziali necessari all'avvio dell'applicazione (es. lista utenti).
+     * Gestisce eventuali eccezioni di connessione al database.
+     */
     public void initData() {
         try {
             List<Utenti> list = DAOUtenti.getInstance().select(null);
-            colleghiData.clear();
-            colleghiData.addAll(list);
-            System.out.println("InitData completato: " + colleghiData.size() + " utenti caricati dal database.");
+            utentiData.clear();
+            utentiData.addAll(list);
+            System.out.println("InitData completato: " + utentiData.size() + " utenti caricati dal database.");
         } catch (DAOException e) {
             Alert alert = new Alert(Alert.AlertType.ERROR);
             alert.setTitle("Errore Database");
@@ -84,6 +117,10 @@ public class MainApp extends Application {
         }
     }
 
+    /**
+     * Inizializza il layout radice (Root Layout) che contiene la barra dei menu e il contenuto principale.
+     * Imposta anche il gestore per la chiusura dell'applicazione.
+     */
     public void initRootLayout() {
         try {
             FXMLLoader loader = new FXMLLoader();
@@ -105,6 +142,10 @@ public class MainApp extends Application {
         }
     }
 
+    /**
+     * Gestisce la procedura di uscita dall'applicazione.
+     * Mostra un alert di conferma e, se confermato, chiude le connessioni al database e termina il programma.
+     */
     public void handleExit() {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle("Chiusura applicazione");
@@ -118,7 +159,7 @@ public class MainApp extends Application {
 
         Optional<ButtonType> result = alert.showAndWait();
         if (result.isPresent() && result.get() == buttonTypeOne){
-            // --- FIX: Gestione dell'eccezione SQL ---
+            // Chiusura sicura delle risorse DB
             try {
                 DAOMySQLSettings.closeStatement(DAOMySQLSettings.getStatement());
             } catch (SQLException e) {
@@ -128,8 +169,9 @@ public class MainApp extends Application {
         }
     }
 
-
-
+    /**
+     * Carica e mostra la schermata di Login al centro del Root Layout.
+     */
     public void showUtentiLogin(){
         try {
             FXMLLoader loader = new FXMLLoader();
@@ -142,33 +184,12 @@ public class MainApp extends Application {
         }
     }
 
-    public boolean showSettingsEditDialog(DAOMySQLSettings daoMySQLSettings){
-        try {
-            FXMLLoader loader = new FXMLLoader();
-            loader.setLocation(MainApp.class.getResource("view/SettingsEditDialog.fxml"));
-
-            Stage dialogStage = new Stage();
-            dialogStage.setTitle("DAO settings");
-            dialogStage.initModality((Modality.WINDOW_MODAL));
-            dialogStage.initOwner(primaryStage);
-            Scene scene = new Scene(loader.load());
-            dialogStage.setScene(scene);
-
-            SettingsEditDialogController controller = loader.getController();
-            controller.setDialogStage(dialogStage);
-            controller.setSettings(daoMySQLSettings);
-            dialogStage.getIcons().add(new Image("file:resources/images/edit.png"));
-            dialogStage.showAndWait();
-
-            return controller.isOkClicked();
-        } catch (IOException e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-
-
+    /**
+     * Apre una finestra di dialogo modale per modificare o creare un utente.
+     *
+     * @param user L'oggetto Utente da modificare.
+     * @return true se l'utente ha cliccato OK, false altrimenti.
+     */
     public boolean showUtentiEditDialog(Utenti user) {
         try {
             FXMLLoader loader = new FXMLLoader();
@@ -193,7 +214,7 @@ public class MainApp extends Application {
 
             boolean okClicked = controller.isOkClicked();
 
-            // Aggiorna il nome nell'header se salvato
+            // Aggiorna il nome nell'header se salvato e se siamo nella dashboard
             if (okClicked && mainScreenController != null) {
                 mainScreenController.refreshUserInfo();
             }
@@ -205,6 +226,12 @@ public class MainApp extends Application {
         }
     }
 
+    /**
+     * Apre una finestra di dialogo modale per modificare o creare un Task.
+     *
+     * @param task L'oggetto Task da modificare.
+     * @return true se l'utente ha cliccato OK, false altrimenti.
+     */
     public boolean showTasksEditDialog(Tasks task) {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/it/unicas/project/template/address/view/TaskEditDialog.fxml"));
@@ -232,8 +259,10 @@ public class MainApp extends Application {
         }
     }
 
-
-
+    /**
+     * Carica e mostra la Dashboard principale (MainScreen) al centro del layout.
+     * Inizializza il controller principale e imposta il riferimento all'applicazione.
+     */
     public void showMainScreen() {
         try {
             FXMLLoader loader = new FXMLLoader();
@@ -249,6 +278,12 @@ public class MainApp extends Application {
         }
     }
 
+    /**
+     * Apre la finestra del profilo utente in modalità modale.
+     *
+     * @param user L'utente di cui visualizzare il profilo.
+     * @return true se sono state apportate modifiche confermate.
+     */
     public boolean showUtentiProfile(Utenti user) {
         try {
             FXMLLoader loader = new FXMLLoader();
@@ -283,6 +318,10 @@ public class MainApp extends Application {
         }
     }
 
+    /**
+     * Recupera dalle preferenze utente l'ultimo percorso file utilizzato.
+     * @return Il file corrispondente al percorso salvato, o null se non presente.
+     */
     public File getColleghiFilePath() {
         Preferences prefs = Preferences.userNodeForPackage(MainApp.class);
         String filePath = prefs.get("filePath", null);
@@ -293,6 +332,10 @@ public class MainApp extends Application {
         }
     }
 
+    /**
+     * Salva nelle preferenze utente il percorso del file corrente.
+     * @param file Il file da salvare nelle preferenze.
+     */
     public void setColleghiFilePath(File file) {
         Preferences prefs = Preferences.userNodeForPackage(MainApp.class);
         if (file != null) {
@@ -304,6 +347,10 @@ public class MainApp extends Application {
         }
     }
 
+    /**
+     * Restituisce lo stage principale dell'applicazione.
+     * @return Lo stage primario.
+     */
     public Stage getPrimaryStage() {
         return primaryStage;
     }
@@ -317,7 +364,9 @@ public class MainApp extends Application {
         return showTasksEditDialog(task);
     }
 
-
+    /**
+     * Gestore eventi interno per la gestione delle finestre.
+     */
     class MyEventHandler implements EventHandler<WindowEvent> {
         @Override
         public void handle(WindowEvent windowEvent) {
@@ -325,32 +374,33 @@ public class MainApp extends Application {
         }
     }
 
+    /**
+     * Apre la finestra delle statistiche (grafici) per un determinato utente.
+     *
+     * @param idUtente L'ID dell'utente di cui caricare le statistiche.
+     */
     public void showTasksStatistics(int idUtente) {
         try {
             // 1. Carica il file FXML
             FXMLLoader loader = new FXMLLoader();
             loader.setLocation(MainApp.class.getResource("view/TasksStatistics.fxml"));
 
-            // Assicurati che il tipo di root corrisponda a quello del tuo FXML
             Scene scene = new Scene(loader.load());
 
             // 2. Configura il nuovo Stage
             Stage dialogStage = new Stage();
             dialogStage.setTitle("Statistiche Task Utente");
             dialogStage.initModality(Modality.WINDOW_MODAL);
-            // Assicurati che primaryStage sia l'owner
             if (primaryStage != null) {
                 dialogStage.initOwner(primaryStage);
             }
 
-            // 3. Imposta la Scene e l'icona (opzionale)
+            // 3. Imposta la Scene e l'icona
             dialogStage.setScene(scene);
-            // Puoi usare un'icona specifica per le statistiche se ne hai una
             dialogStage.getIcons().add(new Image("file:resources/images/statistics.png"));
 
             // 4. Ottieni il controller e CARICA I DATI
             TasksStatisticsController controller = loader.getController();
-            // Chiama il metodo che popola i grafici usando l'ID utente
             controller.loadStatistics(idUtente);
 
             // 5. Mostra la finestra
@@ -358,14 +408,16 @@ public class MainApp extends Application {
 
         } catch (IOException e) {
             e.printStackTrace();
-            // Implementa una gestione degli errori più amichevole
-            // showAlert("Errore", "Impossibile caricare la finestra delle statistiche.");
         }
     }
 
-
-    // Inserire dentro MainApp.java (assurati di avere gli import necessari: java.util.function.Consumer)
-
+    /**
+     * Apre la finestra dei promemoria per le scadenze imminenti.
+     *
+     * @param idUtente L'ID dell'utente loggato.
+     * @param onCloseAction Callback da eseguire alla chiusura della finestra (es. nascondere badge).
+     * @param onTaskRequest Callback da eseguire se l'utente seleziona un task (es. aprire dettagli).
+     */
     public void showPromemoria(int idUtente, Runnable onCloseAction, java.util.function.Consumer<Tasks> onTaskRequest) {
         try {
             // 1. Carica FXML

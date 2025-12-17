@@ -31,13 +31,29 @@ import java.time.format.TextStyle;
 import java.util.*;
 import java.util.function.Consumer;
 
+/**
+ * Controller helper che gestisce la logica di visualizzazione della lista dei task.
+ * <p>
+ * Questa classe si occupa di:
+ * <ul>
+ * <li>Gestire le diverse modalità di visualizzazione: Lista, Griglia (Board) e Calendario (Mese/Settimana/Giorno).</li>
+ * <li>Applicare filtri dinamici (categoria, stato, priorità, data, parola chiave).</li>
+ * <li>Ordinare i task in base a completamento, priorità e scadenza.</li>
+ * <li>Gestire il rendering personalizzato delle celle (Card grafiche).</li>
+ * <li>Sincronizzare i dati con il database in background.</li>
+ * </ul>
+ */
 public class TasksList {
 
+    /** Restituisce la lista osservabile dei task caricati. */
     public ObservableList<Tasks> getTasks() { return tasks; }
 
+    /** Modalità di visualizzazione disponibili. */
     public enum ViewMode { LIST, GRID, CALENDAR }
+    /** Modalità di visualizzazione del calendario. */
     public enum CalendarMode { MONTH, WEEK, DAY }
 
+    // --- Componenti UI iniettati ---
     private final ListView<Tasks> taskListView;
     private final ScrollPane gridViewContainer;
     private final FlowPane gridFlowPane;
@@ -47,33 +63,51 @@ public class TasksList {
     private final ScrollPane weekViewContainer;
     private final HBox weekViewBox;
     private final Label calendarMonthLabel;
-
-    // ScrollPane specifico per la vista Mese
     private ScrollPane monthScrollPane;
 
+    // --- Callback ---
     private final MainApp mainApp;
     private final Consumer<Tasks> onEditRequest;
     private final Consumer<Tasks> onDeleteRequest;
     private final Consumer<Tasks> onItemClick;
 
-    // DATA
+    // --- Dati ---
     private ObservableList<Tasks> tasks;
     private SortedList<Tasks> sortedTasks;
     private FilteredList<Tasks> filteredTasks;
 
-    // STATE FILTRI
+    // --- Stato Filtri ---
     private Categorie filterCategory = null;
     private Boolean filterStatus = null;
     private String filterPriority = null;
     private LocalDate filterDate = null;
     private String filterKeyword = null;
 
+    // --- Stato Visualizzazione ---
     private ViewMode currentViewMode = ViewMode.LIST;
     private CalendarMode currentCalendarMode = CalendarMode.MONTH;
     private LocalDate currentCalendarDate = LocalDate.now();
 
+    /** Mappa per tenere traccia del momento esatto del completamento per l'ordinamento. */
     private final Map<Integer, Long> completionTimestamps = new HashMap<>();
 
+    /**
+     * Costruttore principale.
+     * Inizializza i componenti e la logica interna.
+     *
+     * @param taskListView Lista visuale standard.
+     * @param gridViewContainer Contenitore scrollabile per la griglia.
+     * @param gridFlowPane Pannello a flusso per le card della griglia.
+     * @param calendarViewContainer Contenitore principale vista calendario.
+     * @param calendarGrid Griglia per il calendario mensile.
+     * @param weekViewContainer Contenitore scrollabile vista settimanale.
+     * @param weekViewBox Box orizzontale vista settimanale.
+     * @param calendarMonthLabel Etichetta mese/anno calendario.
+     * @param mainApp Riferimento all'applicazione principale.
+     * @param onEditRequest Callback per la modifica task.
+     * @param onDeleteRequest Callback per eliminazione task.
+     * @param onItemClick Callback per click su task (apertura dettagli).
+     */
     public TasksList(ListView<Tasks> taskListView,
                      ScrollPane gridViewContainer, FlowPane gridFlowPane,
                      BorderPane calendarViewContainer, GridPane calendarGrid,
@@ -98,11 +132,18 @@ public class TasksList {
         init();
     }
 
+    /**
+     * Inizializza le liste osservabili, il comparatore per l'ordinamento e configura i componenti UI.
+     */
     private void init() {
         tasks = FXCollections.observableArrayList();
         filteredTasks = new FilteredList<>(tasks, t -> true);
         sortedTasks = new SortedList<>(filteredTasks);
 
+        // Comparator personalizzato:
+        // 1. Task completati in fondo.
+        // 2. Task completati ordinati per data completamento decrescente.
+        // 3. Task aperti ordinati per data scadenza.
         sortedTasks.setComparator((t1, t2) -> {
             if (t1.getCompletamento() != t2.getCompletamento()) return t1.getCompletamento() ? 1 : -1;
             if (t1.getCompletamento()) {
@@ -123,22 +164,22 @@ public class TasksList {
         taskListView.setItems(sortedTasks);
         setupCellFactory();
 
+        // Configurazione responsive per la griglia e il calendario
         if (gridViewContainer != null) {
             gridViewContainer.setVbarPolicy(ScrollPane.ScrollBarPolicy.ALWAYS);
         }
-
         if (gridFlowPane != null) {
             gridFlowPane.widthProperty().addListener((obs, oldVal, newVal) -> {
                 if (currentViewMode == ViewMode.GRID) resizeGridCards(newVal.doubleValue());
             });
         }
-
         if(weekViewContainer != null) {
             weekViewContainer.widthProperty().addListener((obs, o, n) -> {
                 if(currentViewMode == ViewMode.CALENDAR && currentCalendarMode == CalendarMode.WEEK) refreshView();
             });
         }
 
+        // ScrollPane dedicato per il mese
         monthScrollPane = new ScrollPane(calendarGrid);
         monthScrollPane.setFitToWidth(true);
         monthScrollPane.setFitToHeight(false);
@@ -147,12 +188,38 @@ public class TasksList {
         monthScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
     }
 
+    /**
+     * Recupera il nome della categoria dato il suo ID.
+     * @param id ID della categoria.
+     * @param allCats Lista di tutte le categorie disponibili.
+     * @return Nome della categoria o stringa vuota se non trovata.
+     */
+    public String getCategoryName(Integer id, List<Categorie> allCats) {
+        if (id == null || allCats == null) return "";
+        return allCats.stream()
+                .filter(c -> c.getIdCategoria().equals(id))
+                .findFirst()
+                .map(Categorie::getNomeCategoria)
+                .orElse("");
+    }
+
+    /**
+     * Parsing intelligente della data (gestisce formati ISO e custom).
+     * @param dateString Stringa data.
+     * @return LocalDate o null se parsing fallisce.
+     */
     private LocalDate smartParse(String dateString) {
         if (dateString == null || dateString.isEmpty()) return null;
         try { return LocalDate.parse(dateString); }
         catch (Exception e) { return DateUtil.parse(dateString); }
     }
 
+    /**
+     * Restituisce il colore esadecimale associato alla priorità del task.
+     * @param priority Priorità (ALTA, MEDIA, BASSA).
+     * @param isCompleted Se il task è completato (colori più tenui).
+     * @return Stringa colore HEX.
+     */
     private String getPriorityColor(String priority, boolean isCompleted) {
         String p = (priority != null) ? priority.toUpperCase() : "";
         if (isCompleted) {
@@ -170,8 +237,15 @@ public class TasksList {
         }
     }
 
+    /**
+     * Avvia il caricamento dei task dal database per l'utente specificato.
+     * @param userId ID utente.
+     */
     public void loadTasks(Integer userId) { reloadTasksFromDB(); }
 
+    /**
+     * Ricarica i task dal database in un thread separato, applicando i filtri di base.
+     */
     private void reloadTasksFromDB() {
         if (MainApp.getCurrentUser() == null) return;
         Thread dbThread = new Thread(() -> {
@@ -181,13 +255,18 @@ public class TasksList {
                 if (filterCategory != null) filterTemplate.setIdCategoria(filterCategory.getIdCategoria());
                 if (filterStatus != null) filterTemplate.setCompletamento(filterStatus);
                 if (filterPriority != null && !filterPriority.equalsIgnoreCase("TUTTE")) filterTemplate.setPriorita(filterPriority);
-                if (filterKeyword != null && !filterKeyword.isEmpty()) filterTemplate.setTitolo(filterKeyword);
 
                 List<Tasks> results = DAOTasks.getInstance().select(filterTemplate);
                 Platform.runLater(() -> {
                     tasks.setAll(results);
                     applyFilters();
-                    if (currentViewMode != ViewMode.LIST) refreshView();
+
+                    // Refresh forzato per evitare glitch grafici nella lista
+                    if (currentViewMode == ViewMode.LIST) {
+                        taskListView.refresh();
+                    } else {
+                        refreshView();
+                    }
                 });
             } catch (DAOException e) {
                 Platform.runLater(() -> {
@@ -200,19 +279,32 @@ public class TasksList {
         dbThread.start();
     }
 
+    /**
+     * Imposta il filtro per parola chiave (cerca in titolo e descrizione).
+     * @param keyword Parola chiave.
+     */
     public void setFilterKeyword(String keyword) {
         this.filterKeyword = (keyword != null) ? keyword.trim() : null;
-        reloadTasksFromDB();
+        applyFilters();
+        if(currentViewMode == ViewMode.LIST) taskListView.refresh();
+        else refreshView();
     }
+
     public void addTask(Tasks t) { tasks.add(t); refreshView(); }
+
     public void updateTaskInList(Tasks t) {
         for (int i = 0; i < tasks.size(); i++) {
             if (tasks.get(i).getIdTask().equals(t.getIdTask())) { tasks.set(i, t); break; }
         }
         refreshView();
     }
+
     public void removeTask(Tasks t) { tasks.remove(t); refreshView(); }
 
+    /**
+     * Cambia la modalità di visualizzazione corrente.
+     * @param mode Nuova modalità (LIST, GRID, CALENDAR).
+     */
     public void switchView(ViewMode mode) {
         this.currentViewMode = mode;
         taskListView.setVisible(mode == ViewMode.LIST); taskListView.setManaged(mode == ViewMode.LIST);
@@ -220,8 +312,12 @@ public class TasksList {
         calendarViewContainer.setVisible(mode == ViewMode.CALENDAR); calendarViewContainer.setManaged(mode == ViewMode.CALENDAR);
         refreshView();
     }
+
     public ViewMode getCurrentViewMode() { return currentViewMode; }
+
     public void setCalendarMode(CalendarMode mode) { this.currentCalendarMode = mode; refreshView(); }
+
+    /** Sposta il calendario avanti di un'unità temporale (mese/settimana/giorno). */
     public void calendarForward() {
         switch(currentCalendarMode) {
             case MONTH -> currentCalendarDate = currentCalendarDate.plusMonths(1);
@@ -230,6 +326,8 @@ public class TasksList {
         }
         refreshView();
     }
+
+    /** Sposta il calendario indietro di un'unità temporale. */
     public void calendarBack() {
         switch(currentCalendarMode) {
             case MONTH -> currentCalendarDate = currentCalendarDate.minusMonths(1);
@@ -239,6 +337,7 @@ public class TasksList {
         refreshView();
     }
 
+    /** Aggiorna la vista corrente nel thread UI. */
     private void refreshView() {
         Platform.runLater(() -> {
             if (currentViewMode == ViewMode.GRID) renderGrid();
@@ -247,6 +346,7 @@ public class TasksList {
         });
     }
 
+    // --- Setters Filtri ---
     public void setFilterCategory(Categorie c) { this.filterCategory = c; reloadTasksFromDB(); }
     public void setFilterStatus(Boolean s) { this.filterStatus = s; reloadTasksFromDB(); }
     public void setFilterPriority(String p) { this.filterPriority = p; reloadTasksFromDB(); }
@@ -256,12 +356,23 @@ public class TasksList {
         applyFilters();
         refreshView();
     }
+
+    /** Resetta tutti i filtri e ricarica i dati. */
     public void clearFilters() {
         this.filterCategory = null; this.filterStatus = null;
         this.filterPriority = null; this.filterDate = null; this.filterKeyword = null;
+
+        if (filteredTasks != null) {
+            filteredTasks.setPredicate(t -> true);
+        }
+
         reloadTasksFromDB();
     }
 
+    /**
+     * Applica i filtri correnti alla FilteredList in memoria.
+     * Combina in AND logico tutti i criteri (Categoria, Stato, Priorità, Data, Keyword).
+     */
     private void applyFilters() {
         filteredTasks.setPredicate(task -> {
             boolean catMatch = (filterCategory == null) || (task.getIdCategoria() != null && task.getIdCategoria().equals(filterCategory.getIdCategoria()));
@@ -278,17 +389,27 @@ public class TasksList {
                     dateMatch = (tDate != null && tDate.isEqual(filterDate));
                 }
             }
-            boolean keyMatch = (filterKeyword == null || filterKeyword.isEmpty()) || (task.getTitolo().toLowerCase().contains(filterKeyword.toLowerCase()));
+
+            boolean keyMatch = true;
+            if (filterKeyword != null && !filterKeyword.isEmpty()) {
+                String lowerKey = filterKeyword.toLowerCase();
+                boolean titleHit = task.getTitolo() != null && task.getTitolo().toLowerCase().contains(lowerKey);
+                boolean descHit = task.getDescrizione() != null && task.getDescrizione().toLowerCase().contains(lowerKey);
+                keyMatch = titleHit || descHit;
+            }
+
             return catMatch && statMatch && prioMatch && dateMatch && keyMatch;
         });
     }
 
+    /** Rendering della vista a griglia (Board). */
     private void renderGrid() {
         gridFlowPane.getChildren().clear();
         for (Tasks t : sortedTasks) { gridFlowPane.getChildren().add(createGridCard(t)); }
         resizeGridCards(gridFlowPane.getWidth());
     }
 
+    /** Adatta la larghezza delle card nella griglia per riempire lo spazio (responsive). */
     private void resizeGridCards(double containerWidth) {
         if (containerWidth <= 10) return;
         double gap = gridFlowPane.getHgap();
@@ -300,6 +421,7 @@ public class TasksList {
         for (Node node : gridFlowPane.getChildren()) { if (node instanceof VBox) ((VBox) node).setPrefWidth(newWidth); }
     }
 
+    /** Crea una card grafica per la visualizzazione a griglia. */
     private VBox createGridCard(Tasks task) {
         VBox scheda = new VBox(8);
         scheda.getStyleClass().add("scheda-task");
@@ -312,20 +434,18 @@ public class TasksList {
         String colorHex = getPriorityColor(task.getPriorita(), task.getCompletamento());
         dot.setFill(Color.web(colorHex));
 
-        // USO Text AL POSTO DI Label PER AVERE IL setStrikethrough FUNZIONANTE
         Text textTitolo = new Text(task.getTitolo());
         textTitolo.setFont(Font.font("System", FontWeight.BOLD, 15));
 
         if (task.getCompletamento()) {
             textTitolo.setFill(Color.web("#aaaaaa"));
-            textTitolo.setStrikethrough(true); // ORA FUNZIONA
+            textTitolo.setStrikethrough(true);
         } else {
             textTitolo.setFill(Color.WHITE);
             textTitolo.setStrikethrough(false);
         }
 
-        // Gestione wrapping manuale per Text in Griglia (opzionale ma consigliata)
-        textTitolo.setWrappingWidth(180); // Limita larghezza per evitare overflow
+        textTitolo.setWrappingWidth(180);
 
         header.getChildren().addAll(dot, textTitolo);
 
@@ -361,6 +481,7 @@ public class TasksList {
         return scheda;
     }
 
+    /** Smista il rendering del calendario in base alla modalità corrente (Mese, Settimana, Giorno). */
     private void renderCalendarDispatcher() {
         if (currentCalendarMode == CalendarMode.MONTH) {
             monthScrollPane.setVisible(true); monthScrollPane.setManaged(true);
@@ -376,6 +497,7 @@ public class TasksList {
         }
     }
 
+    /** Raggruppa i task per data di scadenza. */
     private Map<LocalDate, List<Tasks>> groupTasksByDate(List<Tasks> taskList) {
         Map<LocalDate, List<Tasks>> map = new HashMap<>();
         for (Tasks t : taskList) {
@@ -389,6 +511,7 @@ public class TasksList {
         return map;
     }
 
+    /** Rendering vista mensile del calendario. */
     private void renderMonthView() {
         calendarGrid.getChildren().clear();
         calendarGrid.getColumnConstraints().clear();
@@ -481,6 +604,7 @@ public class TasksList {
         }
     }
 
+    /** Crea micro-card per la vista mensile. */
     private Node createMicroTaskCard(Tasks t) {
         HBox box = new HBox(4);
         box.setAlignment(Pos.CENTER_LEFT);
@@ -495,7 +619,6 @@ public class TasksList {
                 "-fx-border-width: 0 0 0 3; " +
                 "-fx-cursor: hand;");
 
-        // USARE Text PER SBARRAMENTO
         Text text = new Text(t.getTitolo());
         text.setFont(Font.font("System", FontWeight.BOLD, 12));
         if (t.getCompletamento()) {
@@ -515,6 +638,7 @@ public class TasksList {
         return box;
     }
 
+    /** Rendering vista settimanale. */
     private void renderWeekView() {
         weekViewBox.getChildren().clear();
         LocalDate startOfWeek = currentCalendarDate.with(DayOfWeek.MONDAY);
@@ -555,6 +679,7 @@ public class TasksList {
         }
     }
 
+    /** Rendering vista giornaliera. */
     private void renderDayView() {
         weekViewBox.getChildren().clear();
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.ITALIAN);
@@ -582,6 +707,7 @@ public class TasksList {
         weekViewBox.getChildren().add(dayContainer);
     }
 
+    /** Crea card per vista giornaliera. */
     private Node createDayCard(Tasks t) {
         HBox card = new HBox(15);
         card.setAlignment(Pos.CENTER_LEFT);
@@ -599,7 +725,6 @@ public class TasksList {
 
         VBox textContent = new VBox(4); textContent.setAlignment(Pos.CENTER_LEFT);
 
-        // USARE Text
         Text title = new Text(t.getTitolo());
         title.setFont(Font.font("System", FontWeight.BOLD, 16));
         if(t.getCompletamento()) {
@@ -618,6 +743,7 @@ public class TasksList {
         return card;
     }
 
+    /** Crea card per vista settimanale. */
     private Node createMiniTaskCard(Tasks t) {
         HBox box = new HBox(8);
         box.setAlignment(Pos.CENTER_LEFT);
@@ -649,27 +775,48 @@ public class TasksList {
         return box;
     }
 
-    public String getCategoryName(Integer id, List<Categorie> allCats) {
-        if (id == null || allCats == null) return "";
-        return allCats.stream().filter(c -> c.getIdCategoria().equals(id)).findFirst().map(Categorie::getNomeCategoria).orElse("");
-    }
-
+    /**
+     * Configura la CellFactory per la ListView principale.
+     * Gestisce la visualizzazione completa di una riga task:
+     * Checkbox, Titolo (sbarrato se completato), Badge priorità, Data scadenza, Menu azioni.
+     */
     private void setupCellFactory() {
         taskListView.setCellFactory(param -> new ListCell<>() {
             private final ChangeListener<String> scadenzaListener = (obs, oldVal, newVal) -> { if(getItem()!=null) taskListView.refresh(); };
             private final ChangeListener<Boolean> completamentoListener = (obs, oldVal, newVal) -> { if(getItem()!=null) taskListView.refresh(); };
+
+            // Creiamo il contenitore una volta sola per efficienza
+            private final VBox rootContainer = new VBox(0);
+
+            {
+                rootContainer.setStyle("-fx-background-color: transparent;");
+            }
+
             @Override
             protected void updateItem(Tasks task, boolean empty) {
+                // Pulizia listener precedenti
                 Tasks oldTask = getItem();
                 if (oldTask != null) {
                     oldTask.scadenzaProperty().removeListener(scadenzaListener);
                     oldTask.completamentoProperty().removeListener(completamentoListener);
                 }
+
                 super.updateItem(task, empty);
-                if (empty || task == null) { setText(null); setGraphic(null); return; }
+
+                // --- Pulizia Grafica Fondamentale per evitare glitch ---
+                rootContainer.getChildren().clear();
+                setText(null);
+
+                if (empty || task == null) {
+                    setGraphic(null);
+                    return;
+                }
+
+                // Ricollega listener
                 task.scadenzaProperty().addListener(scadenzaListener);
                 task.completamentoProperty().addListener(completamentoListener);
 
+                // CheckBox
                 CheckBox completeBox = new CheckBox();
                 completeBox.setSelected(task.getCompletamento());
                 completeBox.setOnAction(e -> {
@@ -677,7 +824,6 @@ public class TasksList {
                     task.setCompletamento(nuovoStato);
                     if (nuovoStato) completionTimestamps.put(task.getIdTask(), System.currentTimeMillis());
                     else completionTimestamps.remove(task.getIdTask());
-
                     Platform.runLater(() -> {
                         Comparator<Tasks> cmp = (Comparator<Tasks>) sortedTasks.getComparator();
                         sortedTasks.setComparator(null); sortedTasks.setComparator(cmp);
@@ -685,13 +831,13 @@ public class TasksList {
                     new Thread(() -> { try { DAOTasks.getInstance().update(task); } catch (Exception ex) { ex.printStackTrace(); } }).start();
                 });
 
+                // Badge Priorità
                 Label priorityBadge = new Label(task.getPriorita() != null ? task.getPriorita().trim() : "");
                 String colore = getPriorityColor(task.getPriorita(), task.getCompletamento());
-
                 priorityBadge.setStyle("-fx-text-fill:white; -fx-background-color:" + colore + "; -fx-padding: 5 12; -fx-background-radius: 6; -fx-font-weight: bold; -fx-font-size: 12px;");
-                priorityBadge.setMinWidth(Region.USE_PREF_SIZE); priorityBadge.setMinHeight(Region.USE_PREF_SIZE);
+                priorityBadge.setMinWidth(Region.USE_PREF_SIZE);
 
-                // USO Text PER SBARRAMENTO ANCHE QUI
+                // Titolo
                 Text textLabel = new Text(task.getTitolo());
                 textLabel.setFont(Font.font("System", 15));
                 if (task.getCompletamento()) {
@@ -702,7 +848,8 @@ public class TasksList {
                     textLabel.setStrikethrough(false);
                 }
 
-                Label dateLabel = new Label(); dateLabel.setText("");
+                // Data
+                Label dateLabel = new Label();
                 if (!task.getCompletamento() && task.getScadenza() != null && !task.getScadenza().isEmpty() && !task.getScadenza().equalsIgnoreCase("null")) {
                     try {
                         LocalDate scad = smartParse(task.getScadenza());
@@ -713,35 +860,34 @@ public class TasksList {
                             else if (scad.isEqual(oggi.plusDays(1))) { dateLabel.setText("⏳ DOMANI"); dateLabel.setStyle("-fx-text-fill: #8BE9FD; -fx-font-weight: bold; -fx-font-size: 12px;"); }
                             else { dateLabel.setText("📅 " + DateUtil.format(scad)); dateLabel.setStyle("-fx-text-fill: #bd93f9; -fx-font-size: 10px;"); }
                         }
-                    } catch (Exception e) { dateLabel.setText(""); }
+                    } catch (Exception e) {}
                 }
                 dateLabel.setMinWidth(Region.USE_PREF_SIZE);
 
+                // Menu
                 MenuItem editItem = new MenuItem("Modifica"); MenuItem deleteItem = new MenuItem("Elimina");
                 editItem.setOnAction(e -> onEditRequest.accept(task)); deleteItem.setOnAction(e -> onDeleteRequest.accept(task));
                 MenuButton menuButton = new MenuButton("⋮", null, editItem, deleteItem);
                 menuButton.getStyleClass().add("task-menu-button");
                 menuButton.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 16px;");
 
+                // Layout Riga
                 Region spacer = new Region(); HBox.setHgrow(spacer, Priority.ALWAYS);
                 HBox taskContent = new HBox(15, completeBox, priorityBadge, textLabel, spacer, dateLabel, menuButton);
                 taskContent.setAlignment(Pos.CENTER_LEFT); taskContent.setPadding(new Insets(5, 0, 5, 0));
                 taskContent.setOpacity(task.getCompletamento() ? 0.5 : 1.0);
 
-                VBox rootContainer = new VBox(0); rootContainer.setStyle("-fx-background-color: transparent;");
-
+                // Separatore (COMPLETATE)
                 boolean showSeparator = false;
                 if (task.getCompletamento()) {
                     int index = getIndex();
                     if (index == 0) showSeparator = true;
                     else {
-                        try {
-                            if (index > 0 && index < getListView().getItems().size()) {
-                                Tasks prevTask = getListView().getItems().get(index - 1);
-                                if (!prevTask.getCompletamento()) showSeparator = true;
-                            }
-                        } catch (IndexOutOfBoundsException e) {
-                            // Ignora errori di indice durante scroll veloce
+                        // Safe check su lista filtrata corrente
+                        ObservableList<Tasks> currentList = getListView().getItems();
+                        if (currentList != null && index > 0 && index < currentList.size()) {
+                            Tasks prevTask = currentList.get(index - 1);
+                            if (!prevTask.getCompletamento()) showSeparator = true;
                         }
                     }
                 }
@@ -753,8 +899,9 @@ public class TasksList {
                     separatorBox.getChildren().addAll(sepLabel, line);
                     rootContainer.getChildren().add(separatorBox);
                 }
+
                 rootContainer.getChildren().add(taskContent);
-                setGraphic(rootContainer); setText(null);
+                setGraphic(rootContainer);
             }
         });
     }

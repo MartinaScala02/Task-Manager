@@ -6,60 +6,69 @@ import it.unicas.project.template.address.model.dao.DAOException;
 import it.unicas.project.template.address.MainApp;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
-import javafx.scene.control.PasswordField; //gestisce automaticamente la maschera
+import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 
 import java.util.List;
 
+/**
+ * Controller per la gestione della schermata di Login.
+ * <p>
+ * Questa classe gestisce l'interazione con l'utente per l'autenticazione al sistema.
+ * Include funzionalità per l'inserimento delle credenziali, la gestione della visibilità
+ * della password e la navigazione verso la registrazione di un nuovo utente.
+ * </p>
+ */
 public class UtentiLoginController {
 
     @FXML
     private TextField emailField;
 
-    //uso due campi per la password: uno mascherato (PasswordField) e uno visibile (TextField)
     @FXML
-    private PasswordField PasswordField; //campo password mascherato
+    private PasswordField PasswordField;
 
     @FXML
-    private TextField pswVisibleField; //campo password visibile
+    private TextField pswVisibleField;
 
     @FXML
-    private ToggleButton showpswBtn; //pulsante per mostrare/nascondere la password
+    private ToggleButton showpswBtn;
 
     private MainApp mainApp;
 
-
-    public UtentiLoginController() {
-    }
-
+    /**
+     * Imposta il riferimento all'applicazione principale.
+     * Necessario per consentire al controller di interagire con il flusso principale dell'applicazione.
+     *
+     * @param mainApp L'istanza dell'applicazione principale.
+     */
     public void setMainApp(MainApp mainApp) {
-        this.mainApp = mainApp; // Riferimento all'applicazione principale
+        this.mainApp = mainApp;
     }
 
-
-    //metodo che viene chiamato automaticamente dopo il caricamento del file FXML
+    /**
+     * Metodo di inizializzazione chiamato automaticamente dopo il caricamento del file FXML.
+     * <p>
+     * Configura il binding tra il campo password mascherato e quello visibile e imposta
+     * il listener sul pulsante toggle per alternare la visualizzazione della password.
+     * </p>
+     */
     @FXML
     private void initialize() {
-        // Sincronizza i due campi (significa che i due campi condividono lo stesso testo)
         pswVisibleField.textProperty().bindBidirectional(PasswordField.textProperty());
 
-        //all'avvio mostra solo il PasswordField
-        pswVisibleField.setVisible(false); //non visibile
-        pswVisibleField.setManaged(false); //non occupa spazio nel layout
+        pswVisibleField.setVisible(false);
+        pswVisibleField.setManaged(false);
 
-//per gestire la visibilità della password -> selezionato mostra il campo di testo normale, altrimenti mostra il PasswordField
         showpswBtn.selectedProperty().addListener((obs, oldV, newV) -> {
             if (newV) {
-                //se viene cliccato il togglebutton la password diventa visibile
                 pswVisibleField.setVisible(true);
                 pswVisibleField.setManaged(true);
                 PasswordField.setVisible(false);
                 PasswordField.setManaged(false);
-                pswVisibleField.requestFocus(); //mette il cursore lampeggiante nel campo di testo visibile (la tastiera scrive lì)
-                pswVisibleField.positionCaret(pswVisibleField.getText().length()); //posiziona il cursore alla fine del testo
+                pswVisibleField.requestFocus();
+                pswVisibleField.positionCaret(pswVisibleField.getText().length());
             } else {
-                //
                 PasswordField.setVisible(true);
                 PasswordField.setManaged(true);
                 pswVisibleField.setVisible(false);
@@ -70,41 +79,40 @@ public class UtentiLoginController {
         });
     }
 
-    //per gestire il login (metodo collegato al pulsante di login nell'FXML)
+    /**
+     * Gestisce l'azione di login quando viene premuto il pulsante dedicato.
+     * <p>
+     * Recupera le credenziali inserite, valida l'input e interroga il database tramite {@link DAOUtenti}.
+     * Se le credenziali sono corrette, imposta l'utente corrente nell'applicazione e mostra la schermata principale.
+     * In caso di errore o credenziali non valide, mostra un messaggio di allerta.
+     * </p>
+     */
     @FXML
     private void handleLogin() {
 
-        //si prendono le credenziali inserite dall'utente da tastiera
         String emailInserita = emailField.getText();
         String passwordInserita = PasswordField.getText();
 
-        //dà errore se uno dei due campi è vuoto
         if (emailInserita == null || emailInserita.isEmpty() || passwordInserita == null || passwordInserita.isEmpty()) {
-            Alert alert = new Alert(Alert.AlertType.ERROR); //viene mostrato un popup di errore
+            Alert alert = new Alert(Alert.AlertType.ERROR);
             alert.setContentText("Inserisci email e password.");
             alert.showAndWait();
             return;
         }
 
-        //per evitare che l'app crashi se ci sono problemi con il database
         try {
 
-            Utenti userDaCercare = new Utenti(); //crea un oggetto utente temporaneo per cercare nel database (si crea un contenitore dei dati di ricerca)
-            //per passare i dati di ricerca al DAO
+            Utenti userDaCercare = new Utenti();
             userDaCercare.setEmail(emailInserita);
             userDaCercare.setPsw(passwordInserita);
 
+            List<Utenti> risultato = DAOUtenti.getInstance().select(userDaCercare);
 
+            if (!risultato.isEmpty()) {
 
-            List<Utenti> risultato = DAOUtenti.getInstance().select(userDaCercare); //si cerca l'utente nel database e si ottiene la lista dei risultati
+                Utenti utenteLoggato = risultato.get(0);
+                MainApp.setCurrentUser(utenteLoggato);
 
-            if (!risultato.isEmpty()) { //se la lista non è vuota, il login ha avuto successo
-
-                Utenti utenteLoggato = risultato.get(0); //prende il primo utente dalla lista (dovrebbe esserci solo un utente con quelle credenziali)
-                MainApp.setCurrentUser(utenteLoggato); //imposta l'utente loggato nell'app principale ->l'app sa chi è l'utente corrente
-
-
-                //messaggio di benvenuto
                 Alert alert = new Alert(Alert.AlertType.INFORMATION);
                 alert.setTitle("Successo");
                 alert.setHeaderText(null);
@@ -114,7 +122,6 @@ public class UtentiLoginController {
                 mainApp.showMainScreen();
 
             } else {
-                //se la lista è vuota, il login è fallito
                 Alert alert = new Alert(Alert.AlertType.ERROR);
                 alert.setTitle("Errore");
                 alert.setHeaderText("Login Fallito");
@@ -127,27 +134,32 @@ public class UtentiLoginController {
         }
     }
 
-
+    /**
+     * Gestisce l'azione di registrazione di un nuovo utente.
+     * <p>
+     * Apre la finestra di dialogo per l'inserimento dei dati del nuovo utente.
+     * Se l'operazione viene confermata, inserisce il nuovo utente nel database.
+     * </p>
+     */
     @FXML
     private void handleRegister(){
-            Utenti tempUtenti = new Utenti(); //crea un oggetto utente temporaneo per passarlo al dialog di registrazione
-            boolean okClicked = mainApp.showUtentiEditDialog(tempUtenti); //mostra il dialog di registrazione e aspetta che l'utente prema OK o Annulla
+        Utenti tempUtenti = new Utenti();
+        boolean okClicked = mainApp.showUtentiEditDialog(tempUtenti);
 
-            if (okClicked) {
-                try {
-                    DAOUtenti.getInstance().insert(tempUtenti); //inserisce il nuovo utente nel database
-                    mainApp.getColleghiData().add(tempUtenti); //aggiorna la lista degli utenti nell'app principale
+        if (okClicked) {
+            try {
+                DAOUtenti.getInstance().insert(tempUtenti);
+                mainApp.getUtentiData().add(tempUtenti);
 
-                } catch (DAOException e) { //se c'è un errore durante l'inserimento nel database, mostra un messaggio di errore
-                    Alert alert = new Alert(Alert.AlertType.ERROR);
-                    alert.initOwner(mainApp.getPrimaryStage());
-                    alert.setTitle("Errore");
-                    alert.setHeaderText("Errore durante la registrazione");
-                    alert.setContentText(e.getMessage());
-                    alert.showAndWait();
-                }
+            } catch (DAOException e) {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.initOwner(mainApp.getPrimaryStage());
+                alert.setTitle("Errore");
+                alert.setHeaderText("Errore durante la registrazione");
+                alert.setContentText(e.getMessage());
+                alert.showAndWait();
             }
         }
+    }
 
 }
-

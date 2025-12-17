@@ -2,7 +2,7 @@ package it.unicas.project.template.address.model.dao.mysql;
 
 import it.unicas.project.template.address.model.Tasks;
 import it.unicas.project.template.address.model.dao.DAOException;
-import org.junit.jupiter.api.Test;
+import org.junit.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;

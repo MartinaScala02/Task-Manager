@@ -20,18 +20,31 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 
-
+/**
+ * Controller principale dell'applicazione (MainScreen).
+ * <p>
+ * Questa classe funge da coordinatore centrale per la dashboard utente. Gestisce:
+ * <ul>
+ * <li>La visualizzazione dei task in diverse modalità (Lista, Griglia, Calendario) tramite {@link TasksList}.</li>
+ * <li>Il pannello laterale destro per i dettagli, sottotask, timer e allegati tramite {@link TasksInfoPane}.</li>
+ * <li>La logica di filtraggio tramite {@link FiltersPane}.</li>
+ * <li>Il form per la creazione rapida di nuovi task.</li>
+ * <li>La navigazione e le notifiche di sistema.</li>
+ * </ul>
+ */
 public class MainScreenController {
 
-    // --- CAMPI FXML HEADER E MENU ---
+
+    // --- Header e Menu Laterale ---
     @FXML private TextField txtSearch;
     @FXML private VBox sideMenu;
     @FXML private Label usernameLabelHeader;
     @FXML private ListView<Tasks> taskListView;
     @FXML private ScrollPane gridViewContainer;
     @FXML private FlowPane gridFlowPane;
+    @FXML private javafx.scene.shape.Circle notificationBadge;
 
-    // --- VISTE CALENDARIO ---
+    // --- Viste Calendario ---
     @FXML private BorderPane calendarViewContainer;
     @FXML private GridPane calendarGrid;
     @FXML private ScrollPane weekViewContainer;
@@ -39,23 +52,23 @@ public class MainScreenController {
     @FXML private Label calendarMonthLabel;
     @FXML private Label viewLabel;
 
-    // --- FILTRI ---
+    // --- Filtri ---
     @FXML private VBox categoryMenuContainer;
     @FXML private ComboBox<String> filterPriorityCombo;
     @FXML private DatePicker filterDatePicker;
     @FXML private ToggleButton btnFilterTodo;
     @FXML private ToggleButton btnFilterDone;
 
-    // --- DETTAGLI TASK (Pannello Destro) ---
+    // --- Dettagli Task (Pannello Destro) ---
     @FXML private VBox rightDetailPanel;
     @FXML private Label detailTitleLabel, detailCategoryLabel;
     @FXML private DatePicker detailDueDatePicker;
     @FXML private TextArea detailDescArea;
     @FXML private ListView<SubTasks> subTaskListView;
     @FXML private TextField newSubTaskField;
-    @FXML private ListView<Allegati> attachmentListView; // Iniettata qui, ma passata all'InfoPane
+    @FXML private ListView<Allegati> attachmentListView;
 
-    // --- TIMER ---
+    // --- Timer e Sessioni ---
     @FXML private Label timerLabel;
     @FXML private Label timerStatusLabel;
     @FXML private Button btnTimerToggle;
@@ -65,33 +78,48 @@ public class MainScreenController {
     @FXML private ListView<TimerSessions> timerHistoryList;
     @FXML private Label timerTotalLabel;
 
-    // --- CREAZIONE TASK (Form in basso) ---
+    // --- Creazione Task (Form in basso) ---
     @FXML private TextField newTaskField;
     @FXML private TextArea descriptionArea;
     @FXML private ComboBox<Categorie> categoryComboBox;
     @FXML private ComboBox<String> priorityComboBox;
     @FXML private DatePicker dueDateField;
-    @FXML private Button btnAddAttachment; // Pulsante Graffetta
+    @FXML private Button btnAddAttachment;
 
-    // --- VARIABILI DI STATO ---
+    /** Riferimento all'applicazione principale per navigazione e dati globali. */
     private MainApp mainApp;
+
+    /** Flag per tracciare lo stato di apertura del menu laterale sinistro. */
     private boolean isSideMenuOpen = false;
+
+    /** Helper per gestire la logica di visualizzazione della lista task (Lista, Griglia, Calendario). */
     private TasksList tasksListHelper;
+
+    /** Helper per gestire il pannello destro (Dettagli, Sottotask, Timer). */
     private TasksInfoPane tasksInfoPane;
+
+    /** Helper per gestire la logica dei filtri. */
     private FiltersPane filtersPane;
 
-    // Variabile per memorizzare il file scelto durante la creazione di un task
+    /** File temporaneo selezionato durante la creazione di un nuovo task, prima del salvataggio. */
     private File pendingFile = null;
 
-    // --- INIZIALIZZAZIONE ---
 
+    /**
+     * Collega l'applicazione principale a questo controller.
+     * Viene chiamato da MainApp dopo il caricamento dell'FXML.
+     * Inizializza i dati dell'utente corrente e avvia il controllo delle notifiche.
+     *
+     * @param mainApp L'istanza principale dell'applicazione.
+     */
     public void setMainApp(MainApp mainApp) {
         this.mainApp = mainApp;
         refreshUserInfo();
         if (tasksListHelper != null && MainApp.getCurrentUser() != null) {
             tasksListHelper.loadTasks(MainApp.getCurrentUser().getIdUtente());
 
-            // AGGIUNGI: Un piccolo delay per dare tempo al DB di caricare, poi controlla
+            // Avvia un thread per controllare le notifiche dopo un breve ritardo,
+            // per assicurarsi che i dati siano stati caricati.
             new Thread(() -> {
                 try { Thread.sleep(500); } catch (InterruptedException e) {}
                 javafx.application.Platform.runLater(this::checkNotifications);
@@ -99,49 +127,58 @@ public class MainScreenController {
         }
     }
 
+    /**
+     * Aggiorna l'interfaccia con le informazioni dell'utente loggato (es. nome nell'header).
+     */
     public void refreshUserInfo() {
         Utenti u = MainApp.getCurrentUser();
         if (u != null) usernameLabelHeader.setText(u.getNome());
     }
 
+    /**
+     * Metodo di inizializzazione chiamato automaticamente dopo il caricamento del file FXML.
+     * Configura i componenti UI, istanzia le classi Helper (TasksList, TasksInfoPane, FiltersPane)
+     * e imposta i listener.
+     */
     @FXML
     private void initialize() {
-        // Configurazione DatePicker
+        // Configurazione estetica dei DatePicker (nasconde i numeri della settimana)
         if (filterDatePicker != null) filterDatePicker.setShowWeekNumbers(false);
         if (detailDueDatePicker != null) detailDueDatePicker.setShowWeekNumbers(false);
         if (dueDateField != null) dueDateField.setShowWeekNumbers(false);
 
-        // Inizializzazione Helper Liste e Viste
+        // 1. Inizializzazione Helper Liste e Viste
+        // Passiamo i callback per Edit, Delete e OpenDetail
         tasksListHelper = new TasksList(
                 taskListView, gridViewContainer, gridFlowPane,
                 calendarViewContainer, calendarGrid, weekViewContainer, weekViewBox, calendarMonthLabel,
                 mainApp, this::handleEditTask, this::handleDeleteTask, this::handleOpenDetail
         );
 
+        // Listener per la ricerca testuale in tempo reale
         if (txtSearch != null) {
-            txtSearch.textProperty().addListener((observable, oldValue, newValue) -> tasksListHelper.setFilterKeyword(newValue));
+            txtSearch.textProperty().addListener((observable, oldValue, newValue) ->
+                    tasksListHelper.setFilterKeyword(newValue));
         }
 
-        // Inizializzazione Pannello Dettagli e Timer
-        // NOTA: Passiamo attachmentListView qui!
+        // 2. Inizializzazione Pannello Dettagli e Timer
         tasksInfoPane = new TasksInfoPane(
                 rightDetailPanel, detailTitleLabel, detailCategoryLabel,
                 detailDueDatePicker, detailDescArea, subTaskListView,
                 newSubTaskField, taskListView,
-                attachmentListView, // <--- LISTA ALLEGATI PASSATA ALL'HELPER
+                attachmentListView,
                 timerLabel, timerStatusLabel, btnTimerToggle, btnTimerReset,
                 btnTimerMenu, timerHistoryContainer, timerHistoryList, timerTotalLabel
         );
 
-        // Inizializzazione Filtri
+        // 3. Inizializzazione Filtri
         filtersPane = new FiltersPane(filterPriorityCombo, filterDatePicker,
                 btnFilterTodo, btnFilterDone, categoryMenuContainer,
                 categoryComboBox, tasksListHelper);
 
         setupCreationForm();
 
-        // Configurazione Lista Allegati: RIMOSSA DA QUI (Spostata in TasksInfoPane)
-        // Gestione Click Lista Task
+        // Gestione Click Lista Task (Doppio click apre i dettagli)
         taskListView.setOnMouseClicked(event -> {
             if (event.getClickCount() == 2) {
                 Tasks sel = taskListView.getSelectionModel().getSelectedItem();
@@ -149,17 +186,19 @@ public class MainScreenController {
             }
         });
 
+        // Listener per aggiornare il badge notifiche quando la lista cambia
         if (tasksListHelper != null) {
-            // Questo listener scatta quando carichi dati o aggiungi/rimuovi task
             tasksListHelper.getTasks().addListener((javafx.collections.ListChangeListener<Tasks>) c -> {
                 checkNotifications();
             });
         }
     }
 
-    // --- LOGICA GESTIONE ALLEGATI (SOLO CREAZIONE) ---
-    // La logica di visualizzazione/apertura è stata spostata in TasksInfoPane
 
+    /**
+     * Gestisce il click sul pulsante "Graffetta" nel form di creazione.
+     * Apre un FileChooser per selezionare un file locale.
+     */
     @FXML
     public void handleAddAttachment() {
         FileChooser fileChooser = new FileChooser();
@@ -169,11 +208,18 @@ public class MainScreenController {
 
         if (selected != null) {
             this.pendingFile = selected;
+            // Feedback visivo sul bottone
             btnAddAttachment.setStyle("-fx-background-color: #50fa7b; -fx-text-fill: #282a36; -fx-font-weight: bold;");
             btnAddAttachment.setTooltip(new Tooltip("File pronto: " + selected.getName()));
         }
     }
 
+    /**
+     * Salva fisicamente il file pendente nella cartella "attachments" e inserisce il record nel DB.
+     * Viene chiamato dopo che il Task è stato creato con successo.
+     *
+     * @param taskId L'ID del task appena creato a cui associare l'allegato.
+     */
     private void savePendingFileToDB(Integer taskId) {
         if (pendingFile == null) return;
         try {
@@ -182,7 +228,7 @@ public class MainScreenController {
 
             if (!destDir.exists()) {
                 boolean created = destDir.mkdir();
-                if(!created) System.out.println("Impossibile creare cartella attachments");
+                if (!created) System.out.println("Impossibile creare cartella attachments");
             }
 
             String newFileName = System.currentTimeMillis() + "_" + pendingFile.getName();
@@ -199,7 +245,7 @@ public class MainScreenController {
 
             String ext = "";
             int i = newFileName.lastIndexOf('.');
-            if (i > 0) ext = newFileName.substring(i+1);
+            if (i > 0) ext = newFileName.substring(i + 1);
             allegato.setTipoFile(ext);
 
             DAOAllegati.getInstance().insert(allegato);
@@ -210,12 +256,17 @@ public class MainScreenController {
         }
     }
 
-    // --- CREAZIONE NUOVO TASK ---
-
+    /**
+     * Gestisce la creazione di un nuovo task dal form in basso.
+     * Raccoglie i dati, valida l'input, inserisce nel DB e aggiorna la UI.
+     */
     @FXML
     private void handleNewTask() {
         String titolo = newTaskField.getText().trim();
-        if (titolo.isEmpty()) { showAlert("Titolo obbligatorio"); return; }
+        if (titolo.isEmpty()) {
+            showAlert("Titolo obbligatorio");
+            return;
+        }
 
         if (dueDateField.getValue() != null && dueDateField.getValue().isBefore(LocalDate.now())) {
             showAlert("Errore: Non puoi creare un task nel passato!");
@@ -244,6 +295,7 @@ public class MainScreenController {
 
             DAOTasks.getInstance().insert(t);
 
+            // Se c'era un allegato in attesa, salvalo ora che abbiamo l'ID del task
             if (pendingFile != null && t.getIdTask() != null) {
                 savePendingFileToDB(t.getIdTask());
             }
@@ -256,6 +308,9 @@ public class MainScreenController {
         }
     }
 
+    /**
+     * Resetta i campi del form di creazione task dopo un inserimento.
+     */
     private void resetCreationForm() {
         newTaskField.clear();
         descriptionArea.clear();
@@ -268,28 +323,35 @@ public class MainScreenController {
         btnAddAttachment.setTooltip(null);
     }
 
-    // --- GESTIONE DETTAGLI E VISTE ---
 
+    /**
+     * Apre il pannello laterale destro mostrando i dettagli del task selezionato.
+     *
+     * @param t Il task da visualizzare.
+     */
     private void handleOpenDetail(Tasks t) {
         String catName = tasksListHelper.getCategoryName(t.getIdCategoria(), categoryComboBox.getItems());
         tasksInfoPane.openPanel(t, catName);
-        // loadAttachments è stato rimosso: lo fa l'InfoPane
     }
 
     @FXML private void closeRightPanel() { tasksInfoPane.closePanel(); }
 
+    // Metodi per cambiare la modalità di visualizzazione (Lista, Griglia, Calendario)
     @FXML private void showListView() { tasksListHelper.switchView(TasksList.ViewMode.LIST); if (viewLabel != null) viewLabel.setText("Vista: Lista"); }
     @FXML private void showGridView() { tasksListHelper.switchView(TasksList.ViewMode.GRID); if (viewLabel != null) viewLabel.setText("Vista: Board"); }
     @FXML private void showCalendarView() { tasksListHelper.switchView(TasksList.ViewMode.CALENDAR); if (viewLabel != null) viewLabel.setText("Vista: Calendario"); }
 
+    // Metodi di navigazione calendario
     @FXML private void prevMonth() { tasksListHelper.calendarBack(); }
     @FXML private void nextMonth() { tasksListHelper.calendarForward(); }
     @FXML private void handleCalViewMonth() { tasksListHelper.setCalendarMode(TasksList.CalendarMode.MONTH); }
     @FXML private void handleCalViewWeek()  { tasksListHelper.setCalendarMode(TasksList.CalendarMode.WEEK); }
     @FXML private void handleCalViewDay()   { tasksListHelper.setCalendarMode(TasksList.CalendarMode.DAY); }
 
-    // --- FILTRI ---
 
+    /**
+     * Resetta tutti i filtri attivi e mostra tutti i task.
+     */
     @FXML
     private void handleShowAll() {
         filtersPane.resetAllFilters();
@@ -310,8 +372,12 @@ public class MainScreenController {
         else { filtersPane.setFilterStatus(null); }
     }
 
-    // --- EDIT / DELETE / SUBTASKS / TIMER ---
-
+    /**
+     * Gestisce la modifica di un task esistente.
+     * Apre il dialog di modifica, attende la chiusura e aggiorna DB e UI se necessario.
+     *
+     * @param t Il task da modificare.
+     */
     private void handleEditTask(Tasks t) {
         // 1. Apri la finestra di dialogo (questo deve avvenire nel thread UI)
         boolean okClicked = mainApp.showTasksEditDialog(t);
@@ -320,12 +386,10 @@ public class MainScreenController {
             // 2. Esegui l'aggiornamento nel database in un Thread separato
             new Thread(() -> {
                 try {
-                    // Aggiorna DB
                     DAOTasks.getInstance().update(t);
 
                     // 3. Se successo, aggiorna l'interfaccia grafica (UI Thread)
                     Platform.runLater(() -> {
-                        // Aggiorna la lista principale
                         tasksListHelper.updateTaskInList(t);
 
                         // Se il pannello laterale è aperto su questo task, aggiornalo
@@ -333,13 +397,10 @@ public class MainScreenController {
                             String catName = tasksListHelper.getCategoryName(t.getIdCategoria(), categoryComboBox.getItems());
                             tasksInfoPane.openPanel(t, catName);
                         }
-
-                        // Feedback visivo (opzionale)
                         System.out.println("Task modificato con successo: " + t.getTitolo());
                     });
 
                 } catch (DAOException e) {
-                    // Gestione errori DB
                     Platform.runLater(() -> {
                         e.printStackTrace();
                         showAlert("Errore durante la modifica: " + e.getMessage());
@@ -348,6 +409,13 @@ public class MainScreenController {
             }).start();
         }
     }
+
+    /**
+     * Gestisce l'eliminazione di un task.
+     * Chiede conferma all'utente, poi cancella dal DB e aggiorna la UI.
+     *
+     * @param t Il task da eliminare.
+     */
     private void handleDeleteTask(Tasks t) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Sei sicuro di voler eliminare questo task?", ButtonType.YES, ButtonType.NO);
         alert.showAndWait();
@@ -355,33 +423,29 @@ public class MainScreenController {
         if (alert.getResult() == ButtonType.YES) {
             new Thread(() -> {
                 try {
-                    // Cancella dal DB
                     DAOTasks.getInstance().delete(t);
-
-                    // Aggiorna UI
                     Platform.runLater(() -> {
                         tasksListHelper.removeTask(t);
-                        // Se stavo visualizzando i dettagli di questo task, chiudi il pannello
                         if (tasksInfoPane.getCurrentTask() == t) {
                             tasksInfoPane.closePanel();
                         }
                     });
-
                 } catch (DAOException e) {
-                    Platform.runLater(() -> {
-                        showAlert("Impossibile eliminare il task: " + e.getMessage());
-                    });
+                    Platform.runLater(() -> showAlert("Impossibile eliminare il task: " + e.getMessage()));
                 }
             }).start();
         }
     }
+
     @FXML private void handleNewSubTask() { tasksInfoPane.createSubTask(); }
     @FXML private void handleToggleTimerMenu() { if (tasksInfoPane != null) tasksInfoPane.toggleHistoryMenu(); }
     @FXML private void handleTimerToggle() { if (tasksInfoPane != null) tasksInfoPane.toggleTimer(); }
     @FXML private void handleTimerReset() { if (tasksInfoPane != null) tasksInfoPane.resetTimer(); }
 
-    // --- SETUP UI / UTILITY ---
 
+    /**
+     * Configura i componenti del form di creazione (ComboBox, DatePicker).
+     */
     private void setupCreationForm() {
         if (priorityComboBox != null) priorityComboBox.getItems().setAll("BASSA", "MEDIA", "ALTA");
         categoryComboBox.setConverter(new StringConverter<>() {
@@ -423,26 +487,28 @@ public class MainScreenController {
 
     private void showAlert(String msg) { new Alert(Alert.AlertType.WARNING, msg).show(); }
 
+
+    /**
+     * Apre la finestra dei promemoria con le scadenze imminenti.
+     * Definisce le azioni da eseguire alla chiusura (nascondere badge) e alla selezione (aprire dettagli).
+     */
     @FXML
     private void handleShowPromemoria() {
         if (MainApp.getCurrentUser() != null) {
             mainApp.showPromemoria(
                     MainApp.getCurrentUser().getIdUtente(),
 
-                    // 1. Azione alla chiusura (Nascondi pallino)
+                    // Callback 1: Azione alla chiusura (Nascondi pallino notifiche)
                     () -> {
                         if (notificationBadge != null) {
                             notificationBadge.setVisible(false);
                         }
                     },
 
-                    // 2. Azione al doppio click (Apri task)
+                    // Callback 2: Azione al doppio click (Apri dettaglio task)
                     (selectedTask) -> {
-                        // Seleziona nella lista principale
                         taskListView.getSelectionModel().select(selectedTask);
                         taskListView.scrollTo(selectedTask);
-
-                        // Apri il pannello dettagli
                         handleOpenDetail(selectedTask);
                     }
             );
@@ -451,8 +517,10 @@ public class MainScreenController {
         }
     }
 
-    @FXML private javafx.scene.shape.Circle notificationBadge;
-
+    /**
+     * Controlla se ci sono task urgenti (scaduti, oggi, domani) e aggiorna la visibilità
+     * del pallino delle notifiche.
+     */
     private void checkNotifications() {
         if (tasksListHelper == null || tasksListHelper.getTasks() == null) return;
 
@@ -461,13 +529,12 @@ public class MainScreenController {
 
         // Conta quanti task scadono oggi, domani o sono scaduti e NON sono completati
         boolean hasUrgentTasks = tasksListHelper.getTasks().stream().anyMatch(t -> {
-            if (t.getCompletamento()) return false; // Ignora completati
+            if (t.getCompletamento()) return false;
             if (t.getScadenza() == null || t.getScadenza().isEmpty()) return false;
 
             try {
                 LocalDate due = it.unicas.project.template.address.util.DateUtil.parse(t.getScadenza());
                 if (due == null) return false;
-
                 // Urgente se: è scaduto OPPURE scade oggi OPPURE scade domani
                 return !due.isAfter(tomorrow);
             } catch (Exception e) {
@@ -475,7 +542,6 @@ public class MainScreenController {
             }
         });
 
-        // Mostra o nascondi il pallino
         if (notificationBadge != null) {
             notificationBadge.setVisible(hasUrgentTasks);
         }
