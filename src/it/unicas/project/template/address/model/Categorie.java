@@ -16,6 +16,7 @@ import javafx.collections.ObservableList;
 public class Categorie {
     private StringProperty nomeCategoria;
     private IntegerProperty idCategoria;
+    private IntegerProperty idUtente;
 
     /**
      * Costruttore di default.
@@ -111,4 +112,15 @@ public class Categorie {
     }
 
 
+    public void setIdUtente(Integer idUtente) {
+        if (this.idUtente == null) {
+            this.idUtente = new SimpleIntegerProperty();
+        }
+        this.idUtente.set(idUtente);
+    }
+
+    public String getIdUtente() {
+        if (idUtente == null) return null;
+        return String.valueOf(idUtente.get());
+    }
 }

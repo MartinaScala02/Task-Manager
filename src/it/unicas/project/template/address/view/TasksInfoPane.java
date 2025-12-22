@@ -340,7 +340,6 @@ public class TasksInfoPane {
                 st.setTitolo(titolo);
                 st.setIdTask(currentSelectedTask.getIdTask());
                 st.setCompletamento(false);
-                st.setDescrizione("");
                 DAOSubTasks.getInstance().insert(st);
                 Platform.runLater(() -> {
                     subTasksList.add(st);
@@ -402,7 +401,7 @@ public class TasksInfoPane {
         if (detailDueDatePicker != null) {
             detailDueDatePicker.setPromptText("Nessuna scadenza");
             if (task.getScadenza() != null && !task.getScadenza().isEmpty()) {
-                LocalDate date = null;
+                LocalDate date;
                 try { date = LocalDate.parse(task.getScadenza()); }
                 catch (Exception e) { date = DateUtil.parse(task.getScadenza()); }
                 detailDueDatePicker.setValue(date);
@@ -419,8 +418,8 @@ public class TasksInfoPane {
         updateUIState(false);
         currentDbSessionId = -1;
 
-        if (timerHistoryList != null) timerHistoryList.getItems().clear();
-        if (timerTotalLabel != null) timerTotalLabel.setText("--:--:--");
+        //if (timerHistoryList != null) timerHistoryList.getItems().clear();
+        //if (timerTotalLabel != null) timerTotalLabel.setText("--:--:--");
 
         if (timerHistoryContainer != null) {
             timerHistoryContainer.setVisible(false);
@@ -458,21 +457,7 @@ public class TasksInfoPane {
         });
     }
 
-    /**
-     * Chiude il pannello, mette in pausa il timer e deseleziona il task.
-     */
-    public void closePanel() {
-        if (isTimerRunning) toggleTimer();
 
-        if (isOpen && rightDetailPanel != null) {
-            double width = rightDetailPanel.getWidth();
-            if (width == 0) width = 450;
-            animatePanel(width);
-            isOpen = false;
-            mainListView.getSelectionModel().clearSelection();
-            currentSelectedTask = null;
-        }
-    }
 
     /**
      * Aggiorna lo stato visivo dei pulsanti del timer.
@@ -638,6 +623,22 @@ public class TasksInfoPane {
         TranslateTransition tt = new TranslateTransition(Duration.millis(300), rightDetailPanel);
         tt.setToX(toX);
         tt.play();
+    }
+
+    /**
+     * Chiude il pannello, mette in pausa il timer e deseleziona il task.
+     */
+    public void closePanel() {
+        if (isTimerRunning) toggleTimer(); //ferma timer
+
+        if (isOpen && rightDetailPanel != null) {
+            double width = rightDetailPanel.getWidth();
+            if (width == 0) width = 450;
+            animatePanel(width);
+            isOpen = false;
+            mainListView.getSelectionModel().clearSelection();
+            currentSelectedTask = null;
+        }
     }
 
     /** @return True se il pannello è aperto. */

@@ -2,7 +2,7 @@ package it.unicas.project.template.address.model.dao.mysql;
 
 import it.unicas.project.template.address.model.Tasks;
 import it.unicas.project.template.address.model.dao.DAOException;
-import org.junit.Test;
+import org.testng.annotations.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
@@ -39,14 +39,14 @@ public class DAOTasksFilterTest {
     @Test
     public void testPrivacyEFiltri() throws DAOException {
 
-        System.out.println("=== INIZIO TEST PRIVACY & FILTRI ===");
+        System.out.println("=== INIZIO TEST FILTRI ===");
 
         // --- 1. PREPARAZIONE DATI ---
         // Task MIO: Da fare, Priorità Alta
         Tasks tMio = new Tasks("Mio Task Importante", "Cose private", "2025-12-31", "alta", null, false, null, 12, -1);
 
         // Task DELL'ALTRO: Identico al mio (stessa priorità, stato, ecc.)
-        Tasks tAltro = new Tasks("Task di Martina", "Cose di Mario", "2025-12-31", "alta", null, false, null, 14, -1);
+        Tasks tAltro = new Tasks("Task di Martina", "Cose di Martina", "2025-12-31", "alta", null, false, null, 14, -1);
 
         // Task MIO Completato
         Tasks tMioFinito = new Tasks("Mio Finito", "Già fatto", "2025-12-31", "bassa", null, true, null, 12, -1);
@@ -100,8 +100,7 @@ public class DAOTasksFilterTest {
             List<Tasks> risultatiFiniti = dao.select(filtroFinito);
             stampaRisultati(risultatiFiniti);
 
-            // CORREZIONE: Non controlliamo la size esatta (perché ci sono vecchi dati),
-            // ma controlliamo che il NOSTRO task sia stato trovato.
+            // CORREZIONE: controlliamo che il NOSTRO task sia stato trovato.
             assertTrue(risultatiFiniti.size() >= 1, "Dovrei trovare almeno il task che ho inserito");
             assertTrue(contieneTask(risultatiFiniti, tMioFinito.getIdTask()), "La lista deve contenere il task 'Mio Finito'");
 

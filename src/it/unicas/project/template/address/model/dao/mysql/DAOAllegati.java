@@ -2,7 +2,6 @@ package it.unicas.project.template.address.model.dao.mysql;
 
 import it.unicas.project.template.address.model.Allegati;
 import it.unicas.project.template.address.model.dao.DAOException;
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -50,10 +49,6 @@ public class DAOAllegati {
         Statement st = null;
         try {
             st = DAOMySQLSettings.getStatement();
-
-            // CORREZIONE FONDAMENTALE:
-            // .replace("\\", "\\\\") -> Raddoppia le barre per Windows (C:\ diventa C:\\)
-            // .replace("'", "\\'")   -> Gestisce gli apostrofi (L'albero diventa L\'albero)
 
             String percorsoSicuro = a.getPercorsoFile()
                     .replace("\\", "\\\\")

@@ -41,10 +41,10 @@ public class DAOTimerSessionTest {
     @Test
     public void testLifecycleTimer() throws DAOException {
 
-        System.out.println("=== INIZIO TEST TIMER AVANZATO ===");
+        System.out.println("=== INIZIO TEST TIMER ===");
 
         // 1. PREPARAZIONE
-        int idTaskEsistente = 13; // deve essere già presente nel DB
+        int idTaskEsistente = 13; // deve essere giÃ  presente nel DB
         TimerSessions sessione = new TimerSessions();
         sessione.setIdTask(idTaskEsistente);
         sessione.setNome("Sessione Test Formattazione");

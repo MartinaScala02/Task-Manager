@@ -60,11 +60,6 @@ public class TimerSessions {
      */
     public void setIdSession(int idSession) { this.idSession.set(idSession); }
 
-    /**
-     * Restituisce la property dell'ID sessione.
-     * @return L'oggetto IntegerProperty.
-     */
-    public IntegerProperty idSessionProperty() { return idSession; }
 
     /**
      * Restituisce l'ID del task associato.
@@ -78,11 +73,6 @@ public class TimerSessions {
      */
     public void setIdTask(int idTask) { this.idTask.set(idTask); }
 
-    /**
-     * Restituisce la property dell'ID task.
-     * @return L'oggetto IntegerProperty.
-     */
-    public IntegerProperty idTaskProperty() { return idTask; }
 
     /**
      * Restituisce il nome della sessione.
@@ -96,11 +86,6 @@ public class TimerSessions {
      */
     public void setNome(String nome) { this.nome.set(nome); }
 
-    /**
-     * Restituisce la property del nome.
-     * @return L'oggetto StringProperty.
-     */
-    public StringProperty nomeProperty() { return nome; }
 
     /**
      * Restituisce la data di inizio.
@@ -115,12 +100,6 @@ public class TimerSessions {
     public void setInizio(LocalDateTime inizio) { this.inizio.set(inizio); }
 
     /**
-     * Restituisce la property della data di inizio.
-     * @return ObjectProperty contenente LocalDateTime.
-     */
-    public ObjectProperty<LocalDateTime> inizioProperty() { return inizio; }
-
-    /**
      * Restituisce la data di fine.
      * @return Oggetto LocalDateTime di fine.
      */
@@ -132,11 +111,6 @@ public class TimerSessions {
      */
     public void setFine(LocalDateTime fine) { this.fine.set(fine); }
 
-    /**
-     * Restituisce la property della data di fine.
-     * @return ObjectProperty contenente LocalDateTime.
-     */
-    public ObjectProperty<LocalDateTime> fineProperty() { return fine; }
 
     /**
      * Restituisce la durata in secondi.
@@ -144,17 +118,6 @@ public class TimerSessions {
      */
     public long getDurataSecondi() { return durataSecondi.get(); }
 
-    /**
-     * Imposta la durata in secondi.
-     * @param durataSecondi Nuova durata.
-     */
-    public void setDurataSecondi(long durataSecondi) { this.durataSecondi.set(durataSecondi); }
-
-    /**
-     * Restituisce la property della durata in secondi.
-     * @return L'oggetto LongProperty.
-     */
-    public LongProperty durataSecondiProperty() { return durataSecondi; }
 
     /**
      * Restituisce la durata formattata come stringa "HH:mm:ss".

@@ -171,12 +171,12 @@ public class DAOSubTasks implements DAO<SubTasks> {
         int completatoInt = (s.getCompletamento() != null && s.getCompletamento()) ? 1 : 0;
 
         String titoloSafe = s.getTitolo().replace("'", "\\'");
-        String descrizioneSafe = (s.getDescrizione() != null) ? s.getDescrizione().replace("'", "\\'") : "";
+       // String descrizioneSafe = (s.getDescrizione() != null) ? s.getDescrizione().replace("'", "\\'") : "";
 
         String query = "UPDATE SubTasks SET "
                 + "titolo = '" + titoloSafe + "', "
-                + "descrizione = '" + descrizioneSafe + "', "
-                + "completamento = " + completatoInt
+                + /*"descrizione = '" + descrizioneSafe + "', "
+                +*/ "completamento = " + completatoInt
                 + " WHERE idSubTask = " + s.getIdSubTask();
 
         logger.info("SQL Update: " + query);

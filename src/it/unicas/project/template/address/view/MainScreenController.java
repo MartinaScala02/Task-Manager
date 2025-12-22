@@ -5,6 +5,7 @@ import it.unicas.project.template.address.model.*;
 import it.unicas.project.template.address.model.dao.DAOException;
 import it.unicas.project.template.address.model.dao.mysql.DAOAllegati;
 import it.unicas.project.template.address.model.dao.mysql.DAOTasks;
+import it.unicas.project.template.address.model.dao.mysql.DAOCategorie;
 import javafx.animation.TranslateTransition;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
@@ -261,39 +262,64 @@ public class MainScreenController {
     @FXML
     private void handleNewTask() {
         String titolo = newTaskField.getText().trim();
+        String priorita = priorityComboBox.getValue();
+
         if (titolo.isEmpty()) {
             showAlert("Titolo obbligatorio");
             return;
         }
 
-        if (dueDateField.getValue() != null && dueDateField.getValue().isBefore(LocalDate.now())) {
-            showAlert("Errore: Non puoi creare un task nel passato!");
+        if (priorita == null || priorita.isEmpty()) {
+            showAlert("Attenzione: Devi selezionare una Priorità!");
             return;
         }
 
         try {
             Integer idCat = null;
-            if (categoryComboBox.getValue() != null) idCat = categoryComboBox.getValue().getIdCategoria();
+
+            String nomeCatInput = categoryComboBox.getEditor().getText().trim();
+
+            if (!nomeCatInput.isEmpty()) {
+
+                Categorie catTrovata = categoryComboBox.getItems().stream()
+                        .filter(c -> c.getNomeCategoria().equalsIgnoreCase(nomeCatInput))
+                        .findFirst()
+                        .orElse(null);
+
+                if (catTrovata != null && catTrovata.getIdCategoria() != null && catTrovata.getIdCategoria() > 0) {
+                    idCat = catTrovata.getIdCategoria();
+                } else {
+
+                    Categorie nuovaCat = new Categorie();
+                    nuovaCat.setNomeCategoria(nomeCatInput);
+
+                    if (MainApp.getCurrentUser() != null) {
+                        nuovaCat.setIdUtente(MainApp.getCurrentUser().getIdUtente());
+                    }
+
+
+                    DAOCategorie.getInstance().insert(nuovaCat);
+                    idCat = nuovaCat.getIdCategoria();
+
+
+                    if (filtersPane != null) {
+                        filtersPane.refreshCategories();
+                    }
+                }
+            }
+
 
             Tasks t = new Tasks();
             t.setTitolo(titolo);
             t.setDescrizione(descriptionArea.getText());
-            t.setPriorita(priorityComboBox.getValue());
+            t.setPriorita(priorita);
             t.setScadenza(dueDateField.getValue() != null ? dueDateField.getValue().toString() : null);
-
-            if (MainApp.getCurrentUser() != null) {
-                t.setIdUtente(MainApp.getCurrentUser().getIdUtente());
-            } else {
-                showAlert("Nessun utente loggato!");
-                return;
-            }
-
+            t.setIdUtente(MainApp.getCurrentUser().getIdUtente());
             t.setIdCategoria(idCat);
             t.setCompletamento(false);
 
             DAOTasks.getInstance().insert(t);
 
-            // Se c'era un allegato in attesa, salvalo ora che abbiamo l'ID del task
             if (pendingFile != null && t.getIdTask() != null) {
                 savePendingFileToDB(t.getIdTask());
             }
@@ -302,7 +328,7 @@ public class MainScreenController {
             resetCreationForm();
 
         } catch (DAOException e) {
-            showAlert("Errore inserimento: " + e.getMessage());
+            showAlert("Errore: " + e.getMessage());
         }
     }
 
@@ -313,12 +339,18 @@ public class MainScreenController {
         newTaskField.clear();
         descriptionArea.clear();
         dueDateField.setValue(null);
+
+
+        categoryComboBox.getEditor().clear();
         categoryComboBox.getSelectionModel().clearSelection();
+
         priorityComboBox.getSelectionModel().clearSelection();
 
         pendingFile = null;
-        btnAddAttachment.setStyle("-fx-background-color: #3F2E51; -fx-text-fill: white; -fx-font-size: 18px; -fx-cursor: hand; -fx-background-radius: 4; -fx-border-color: #555; -fx-border-radius: 4;");
-        btnAddAttachment.setTooltip(null);
+        if (btnAddAttachment != null) {
+            btnAddAttachment.setStyle("-fx-background-color: #3F2E51; -fx-text-fill: white;");
+            btnAddAttachment.setTooltip(null);
+        }
     }
 
 
@@ -377,32 +409,49 @@ public class MainScreenController {
      * @param t Il task da modificare.
      */
     private void handleEditTask(Tasks t) {
+        if (mainApp == null) return;
+
+        if (t.getIdTask() == null || t.getIdTask() <= 0) {
+            showAlert("Il task non ha un ID valido.");
+            return;
+        }
+
+        String scadenzaPrecedente = t.getScadenza();
 
         boolean okClicked = mainApp.showTasksEditDialog(t);
 
         if (okClicked) {
 
+            if (t.getScadenza() == null && scadenzaPrecedente != null) {
+                t.setScadenza(scadenzaPrecedente);
+            }
+
             new Thread(() -> {
                 try {
+
                     DAOTasks.getInstance().update(t);
 
-
                     Platform.runLater(() -> {
+
                         tasksListHelper.updateTaskInList(t);
 
+                        int index = taskListView.getItems().indexOf(t);
+                        if (index >= 0) {
+                            taskListView.getItems().set(index, null);
+                            taskListView.getItems().set(index, t);
+                            taskListView.getSelectionModel().select(t);
+                        }
 
-                        if (tasksInfoPane.isOpen() && tasksInfoPane.getCurrentTask().equals(t)) {
+
+                        if (tasksInfoPane.isOpen() && tasksInfoPane.getCurrentTask() != null &&
+                                tasksInfoPane.getCurrentTask().getIdTask().equals(t.getIdTask())) {
+
                             String catName = tasksListHelper.getCategoryName(t.getIdCategoria(), categoryComboBox.getItems());
                             tasksInfoPane.openPanel(t, catName);
                         }
-                        System.out.println("Task modificato con successo: " + t.getTitolo());
                     });
-
                 } catch (DAOException e) {
-                    Platform.runLater(() -> {
-                        e.printStackTrace();
-                        showAlert("Errore durante la modifica: " + e.getMessage());
-                    });
+                    Platform.runLater(() -> showAlert("Errore Database: " + e.getMessage()));
                 }
             }).start();
         }
@@ -446,11 +495,30 @@ public class MainScreenController {
      */
     private void setupCreationForm() {
         if (priorityComboBox != null) priorityComboBox.getItems().setAll("BASSA", "MEDIA", "ALTA");
-        categoryComboBox.setConverter(new StringConverter<>() {
-            @Override public String toString(Categorie c) { return c==null?"":c.getNomeCategoria(); }
-            @Override public Categorie fromString(String s) { return null; }
-        });
 
+        categoryComboBox.setEditable(true);
+
+        categoryComboBox.setConverter(new StringConverter<Categorie>() {
+            @Override
+            public String toString(Categorie c) {
+                return (c == null) ? "" : c.getNomeCategoria();
+            }
+
+            @Override
+            public Categorie fromString(String string) {
+                if (string == null || string.trim().isEmpty()) return null;
+
+                // Cerca se esiste già, altrimenti crea un oggetto temporaneo
+                return categoryComboBox.getItems().stream()
+                        .filter(c -> c.getNomeCategoria().equalsIgnoreCase(string.trim()))
+                        .findFirst()
+                        .orElseGet(() -> {
+                            Categorie temp = new Categorie();
+                            temp.setNomeCategoria(string.trim());
+                            return temp;
+                        });
+            }
+        });
         if (dueDateField != null) {
             dueDateField.setShowWeekNumbers(false);
             dueDateField.setEditable(false);
@@ -496,13 +564,11 @@ public class MainScreenController {
             mainApp.showPromemoria(
                     MainApp.getCurrentUser().getIdUtente(),
 
-
                     () -> {
                         if (notificationBadge != null) {
                             notificationBadge.setVisible(false);
                         }
                     },
-
 
                     (selectedTask) -> {
                         taskListView.getSelectionModel().select(selectedTask);
@@ -527,14 +593,10 @@ public class MainScreenController {
 
 
         boolean hasUrgentTasks = tasksListHelper.getTasks().stream().anyMatch(t -> {
-            if (t.getCompletamento()) return false; // Ignora completati
+            if (t.getCompletamento()) return false;
             if (t.getScadenza() == null || t.getScadenza().isEmpty()) return false;
-
-
             LocalDate due = smartParse(t.getScadenza());
-
             if (due == null) return false;
-
 
             return !due.isAfter(tomorrow);
         });

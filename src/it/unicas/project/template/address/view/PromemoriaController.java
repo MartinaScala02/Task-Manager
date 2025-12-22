@@ -82,7 +82,18 @@ public class PromemoriaController {
         this.onTaskSelected = onTaskSelected;
     }
 
-    // --- NUOVO METODO HELPER PER GESTIRE I FORMATI DATA MISTI ---
+    /**
+     * Metodo di parsing intelligente per le date.
+     * <p>
+     * Tenta di interpretare la stringa data in due formati:
+     * <ol>
+     * <li>Formato ISO standard (yyyy-MM-dd) usato dalla creazione rapida.</li>
+     * <li>Formato custom (dd/MM/yyyy) usato da DateUtil.</li>
+     * </ol>
+     *
+     * @param dateString La stringa della data da parsare.
+     * @return Un oggetto {@link LocalDate} se il parsing ha successo, altrimenti null.
+     */
     private LocalDate smartParse(String dateString) {
         if (dateString == null || dateString.isEmpty()) return null;
         try {
@@ -93,7 +104,7 @@ public class PromemoriaController {
                 // 2. Se fallisce, prova il formato custom (dd/MM/yyyy) usato da DateUtil
                 return DateUtil.parse(dateString);
             } catch (Exception ex) {
-                return null; // Data non valida
+                return null;
             }
         }
     }
@@ -110,10 +121,8 @@ public class PromemoriaController {
      */
     @FXML
     private void initialize() {
-        // Messaggio se la lista è vuota
-        reminderListView.setPlaceholder(new Label("Nessuna scadenza imminente! 🎉"));
 
-        // Setup Grafica Cella
+        reminderListView.setPlaceholder(new Label("Nessuna scadenza imminente! 🎉"));
         reminderListView.setCellFactory(param -> new ListCell<>() {
             @Override
             protected void updateItem(Tasks item, boolean empty) {
@@ -124,16 +133,16 @@ public class PromemoriaController {
                     setGraphic(null);
                     setStyle("-fx-background-color: transparent;");
                 } else {
-                    // 1. Configurazione Testi (Titolo e Data)
+
                     Text title = new Text(item.getTitolo() + "\n");
                     title.setFont(Font.font("System", FontWeight.BOLD, 14));
                     title.setFill(Color.WHITE);
 
                     String msgData = item.getScadenza();
-                    Color colorData = Color.web("#bd93f9"); // Colore default (viola chiaro)
+                    Color colorData = Color.web("#bd93f9");
 
                     try {
-                        // MODIFICA: Usiamo smartParse per gestire entrambi i formati
+
                         LocalDate due = smartParse(item.getScadenza());
                         LocalDate today = LocalDate.now();
 
@@ -150,7 +159,7 @@ public class PromemoriaController {
                             }
                         }
                     } catch (Exception e) {
-                        // In caso di errore estremo, mantiene il testo originale
+                        e.printStackTrace();
                     }
 
                     Text date = new Text(msgData);
@@ -160,23 +169,20 @@ public class PromemoriaController {
                     // TextFlow permette di avere stili diversi nello stesso blocco di testo
                     TextFlow textFlow = new TextFlow(title, date);
 
-                    // Layout HBox per contenere il testo
+
                     HBox container = new HBox(textFlow);
                     container.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
                     setGraphic(container);
-                    // Stile CSS inline per la cella (sfondo scuro, bordi arrotondati, cursore mano)
                     setStyle("-fx-background-color: #3F2E51; -fx-background-radius: 10; -fx-border-width: 0 0 5 0; -fx-border-color: #2b2236; -fx-padding: 10; -fx-cursor: hand;");
                 }
             }
         });
 
-        // Gestione Doppio Click sulla Lista
         reminderListView.setOnMouseClicked(event -> {
             if (event.getClickCount() == 2) {
                 Tasks selected = reminderListView.getSelectionModel().getSelectedItem();
                 if (selected != null && onTaskSelected != null) {
-                    // Notifica il main controller e chiudi questa finestra
                     onTaskSelected.accept(selected);
                     handleClose();
                 }
@@ -200,32 +206,29 @@ public class PromemoriaController {
      */
     public void loadUrgentTasks(int userId) {
         try {
-            // Creazione template per filtrare query SQL
+
             Tasks template = new Tasks();
             template.setIdUtente(userId);
-            template.setCompletamento(false); // Solo task aperte
+            template.setCompletamento(false);
 
-            // Recupero tutte le task aperte dell'utente
+
             List<Tasks> allTasks = DAOTasks.getInstance().select(template);
 
             LocalDate today = LocalDate.now();
             LocalDate tomorrow = today.plusDays(1);
 
-            // Filtraggio logico (Java Stream) per le date
+            // Filtraggio logico (metodo alternativo)
             List<Tasks> urgentTasks = allTasks.stream()
                     .filter(t -> {
+                        if (t.getCompletamento()) return false;
                         if (t.getScadenza() == null || t.getScadenza().isEmpty()) return false;
-
-                        // MODIFICA: Usiamo smartParse invece di DateUtil.parse
                         LocalDate due = smartParse(t.getScadenza());
-
                         if (due == null) return false;
-                        // Mantieni se la data NON è dopo domani (quindi è scaduta, oggi o domani)
                         return !due.isAfter(tomorrow);
                     })
                     .collect(Collectors.toList());
 
-            // Aggiornamento UI
+
             ObservableList<Tasks> data = FXCollections.observableArrayList(urgentTasks);
             reminderListView.setItems(data);
 

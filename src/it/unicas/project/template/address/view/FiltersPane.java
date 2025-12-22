@@ -144,7 +144,7 @@ public class FiltersPane {
                     });
 
                     Button btnX = new Button("x");
-                    btnX.setStyle("-fx-text-fill: #e74c3c; -fx-background-color: transparent;");
+                    btnX.setStyle("-fx-text-fill: #e74c3c; -fx-background-color: transparent; -fx-border-color: transparent;");
                     btnX.setOnAction(e -> deleteCategory(c));
 
                     row.getChildren().addAll(link, btnX);
@@ -152,6 +152,7 @@ public class FiltersPane {
                 }
             }
         } catch (Exception e) {
+
             e.printStackTrace();
         }
     }
@@ -185,6 +186,7 @@ public class FiltersPane {
     public void resetAllFilters() {
         tasksListHelper.clearFilters();
 
+        if (formCategoryCombo != null) formCategoryCombo.getSelectionModel().clearSelection();
         if (filterPriorityCombo != null) filterPriorityCombo.getSelectionModel().selectFirst();
         if (filterDatePicker != null) filterDatePicker.setValue(null);
 

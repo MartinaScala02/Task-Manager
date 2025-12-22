@@ -4,20 +4,11 @@ import it.unicas.project.template.address.model.Categorie;
 import it.unicas.project.template.address.model.dao.DAO;
 import it.unicas.project.template.address.model.dao.DAOException;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
-/**
- * Data Access Object (DAO) per la gestione della tabella 'Categorie' su database MySQL.
- * <p>
- * Implementa l'interfaccia {@link DAO} e utilizza il pattern Singleton per garantire
- * un'unica istanza di accesso ai dati.
- * </p>
- */
 public class DAOCategorie implements DAO<Categorie> {
 
     private DAOCategorie(){}
@@ -25,25 +16,14 @@ public class DAOCategorie implements DAO<Categorie> {
     private static DAOCategorie dao = null;
     private static Logger logger = null;
 
-    /**
-     * Restituisce l'unica istanza (Singleton) della classe DAOCategorie.
-     * @return L'istanza singleton.
-     */
     public static DAO getInstance(){
         if (dao == null){
             dao = new DAOCategorie();
-            logger = Logger.getLogger(DAOCategorie.class.getName()); // Corretto il logger name
+            logger = Logger.getLogger(DAOCategorie.class.getName());
         }
         return dao;
     }
 
-    /**
-     * Esegue una query di selezione sulla tabella Categorie.
-     *
-     * @param c Oggetto Categorie contenente i criteri di filtro (opzionale).
-     * @return Una lista di oggetti {@link Categorie} trovati.
-     * @throws DAOException In caso di errore SQL.
-     */
     @Override
     public List<Categorie> select(Categorie c) throws DAOException {
         ArrayList<Categorie> lista = new ArrayList<>();
@@ -51,18 +31,19 @@ public class DAOCategorie implements DAO<Categorie> {
 
         try {
             st = DAOMySQLSettings.getStatement();
-
-            // Costruzione della query dinamica
+            // Iniziamo la query
             String sql = "SELECT * FROM Categorie WHERE 1=1 ";
 
-            // Filtri opzionali (se l'oggetto c non è null)
             if (c != null) {
-                // Filtro per nomeCategoria (con escape apostrofi)
+                // FILTRO FONDAMENTALE: Carica solo le categorie dell'utente
+                if (c.getIdUtente() != null) {
+                    sql += " AND idUtente = " + c.getIdUtente();
+                }
+
                 if (c.getNomeCategoria() != null && !c.getNomeCategoria().isEmpty()) {
                     sql += " AND nomeCategoria LIKE '" + c.getNomeCategoria().replace("'", "\\'") + "%'";
                 }
 
-                // Filtro per ID
                 if (c.getIdCategoria() != null && c.getIdCategoria() > 0) {
                     sql += " AND idCategoria = " + c.getIdCategoria();
                 }
@@ -72,11 +53,13 @@ public class DAOCategorie implements DAO<Categorie> {
 
             ResultSet rs = st.executeQuery(sql);
             while (rs.next()) {
-                // Creiamo l'oggetto Categorie con i dati dal DB
-                lista.add(new Categorie(
+                Categorie cat = new Categorie(
                         rs.getString("nomeCategoria"),
                         rs.getInt("idCategoria")
-                ));
+                );
+                // Impostiamo anche l'idUtente nell'oggetto restituito
+                cat.setIdUtente(rs.getInt("idUtente"));
+                lista.add(cat);
             }
 
         } catch (SQLException sq) {
@@ -87,52 +70,48 @@ public class DAOCategorie implements DAO<Categorie> {
         return lista;
     }
 
-    /**
-     * Elimina una categoria dal database.
-     *
-     * @param c La categoria da eliminare (richiede ID valido).
-     * @throws DAOException Se l'ID è mancante o non valido.
-     */
-    @Override
-    public void delete(Categorie c) throws DAOException {
-        if (c == null || c.getIdCategoria() == null || c.getIdCategoria() <= 0) {
-            throw new DAOException("Impossibile eliminare: idCategoria mancante.");
-        }
-
-        String query = "DELETE FROM Categorie WHERE idCategoria = " + c.getIdCategoria();
-        logger.info("SQL Delete: " + query);
-
-        executeUpdate(query);
-    }
-
-    /**
-     * Inserisce una nuova categoria nel database.
-     *
-     * @param c La categoria da inserire.
-     * @throws DAOException Se i dati non sono validi.
-     */
     @Override
     public void insert(Categorie c) throws DAOException {
         verifyObject(c);
 
-        // Escape del nome per sicurezza (gestione apostrofi)
+        // Controllo di sicurezza
+        if (c.getIdUtente() == null) {
+            throw new DAOException("Impossibile inserire categoria: idUtente mancante.");
+        }
+
         String nomeSafe = c.getNomeCategoria().replace("'", "\\'");
 
-        // CORREZIONE FONDAMENTALE:
-        // 1. Rimuoviamo idCategoria dall'insert: è AUTO_INCREMENT, ci pensa MySQL.
-        // 2. Mettiamo gli apici corretti intorno al valore stringa.
-        String query = "INSERT INTO Categorie (nomeCategoria) VALUES ('" + nomeSafe + "')";
-
+        // MODIFICA SQL: Inseriamo anche l'idUtente
+        String query = "INSERT INTO Categorie (nomeCategoria, idUtente) VALUES ('" + nomeSafe + "', " + c.getIdUtente() + ")";
         logger.info("SQL Insert: " + query);
-        executeUpdate(query);
+
+        // Usiamo una versione modificata di executeUpdate per recuperare l'ID
+        insertAndPopulateId(c, query);
     }
 
     /**
-     * Aggiorna i dati di una categoria esistente.
-     *
-     * @param c La categoria con i dati aggiornati (richiede ID).
-     * @throws DAOException Se l'ID è mancante o non valido.
+     * Metodo helper specifico per l'insert che recupera l'ID autogenerato
      */
+    private void insertAndPopulateId(Categorie c, String query) throws DAOException {
+        Connection conn = null;
+        PreparedStatement ps = null;
+        try {
+            conn = DAOMySQLSettings.getStatement().getConnection();
+
+            ps = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
+            ps.executeUpdate();
+
+            ResultSet rs = ps.getGeneratedKeys();
+            if (rs.next()) {
+                c.setIdCategoria(rs.getInt(1)); // Imposta l'ID nell'oggetto Categorie
+            }
+        } catch (SQLException e) {
+            throw new DAOException("Errore Database nell'insert: " + e.getMessage());
+        } finally {
+            try { if (ps != null) ps.close(); } catch (SQLException e) {}
+        }
+    }
+
     @Override
     public void update(Categorie c) throws DAOException {
         if (c == null || c.getIdCategoria() == null || c.getIdCategoria() <= 0) {
@@ -140,8 +119,6 @@ public class DAOCategorie implements DAO<Categorie> {
         }
 
         String nomeSafe = c.getNomeCategoria().replace("'", "\\'");
-
-        // CORREZIONE: Aggiunto l'apice di chiusura mancante dopo il nome
         String query = "UPDATE Categorie SET "
                 + "nomeCategoria = '" + nomeSafe + "' "
                 + "WHERE idCategoria = " + c.getIdCategoria();
@@ -150,7 +127,15 @@ public class DAOCategorie implements DAO<Categorie> {
         executeUpdate(query);
     }
 
-    // Metodo helper per evitare inserimenti errati
+    @Override
+    public void delete(Categorie c) throws DAOException {
+        if (c == null || c.getIdCategoria() == null || c.getIdCategoria() <= 0) {
+            throw new DAOException("Impossibile eliminare: idCategoria mancante.");
+        }
+        String query = "DELETE FROM Categorie WHERE idCategoria = " + c.getIdCategoria();
+        executeUpdate(query);
+    }
+
     private void verifyObject(Categorie c) throws DAOException {
         if (c == null) throw new DAOException("Categorie è null");
         if (c.getNomeCategoria() == null || c.getNomeCategoria().isEmpty()) {

@@ -66,7 +66,7 @@ public class DAOTasks implements DAO<Tasks> {
             String query = "INSERT INTO Tasks (titolo, descrizione, scadenza, priorità, completamento, idUtente, idCategoria) VALUES ('"
                     + t.getTitolo().replace("'", "\\'") + "', '"
                     + (t.getDescrizione() != null ? t.getDescrizione().replace("'", "\\'") : "") + "', "
-                    + scadenzaVal + ", '" // Nota: niente apici intorno a scadenzaVal perché sono già inclusi se serve
+                    + scadenzaVal + ", '"
                     + t.getPriorita() + "', "
                     + completatoInt + ", "
                     + t.getIdUtente() + ", "

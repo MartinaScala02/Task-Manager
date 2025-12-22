@@ -20,7 +20,7 @@ import java.util.Map;
  */
 public class TasksStatisticsController {
 
-    // --- Riferimenti agli oggetti FXML ---
+
 
     /** Grafico a torta per la distribuzione delle priorità dei task. */
     @FXML
@@ -71,23 +71,17 @@ public class TasksStatisticsController {
      */
     public void loadStatistics(int idUtente) {
         try {
-            // 1. Caricamento Pie Chart (Task per Priorità)
+
             loadPriorityData(idUtente);
 
-            // 2. Caricamento Bar Chart (Tempo per Categoria)
             loadCategoryTimeData(idUtente);
 
-            // 3. Aggiornamento Etichette (Aperti vs Chiusi e Workload)
             loadCompletionStats(idUtente);
 
         } catch (DAOException e) {
             showAlert("Errore Caricamento Statistiche", "Impossibile recuperare i dati dal database");
         }
     }
-
-    // =================================================================================
-    // METODI DI SUPPORTO PRIVATI
-    // =================================================================================
 
     /**
      * Carica i dati per il grafico a torta (PieChart) che mostra la distribuzione dei task per priorità.
@@ -96,11 +90,11 @@ public class TasksStatisticsController {
      * @throws DAOException Se si verifica un errore durante l'interrogazione del database.
      */
     private void loadPriorityData(int idUtente) throws DAOException {
-        // Recupera una mappa <Priorità, Conteggio> dal DAO
+
         Map<String, Integer> data = DAOStatistics.getInstance().getTaskCountByPriority(idUtente);
         ObservableList<PieChart.Data> pieData = FXCollections.observableArrayList();
 
-        // Converte la mappa in dati compatibili con JavaFX PieChart
+
         for (Map.Entry<String, Integer> entry : data.entrySet()) {
             pieData.add(new PieChart.Data(entry.getKey(), entry.getValue()));
         }
@@ -118,13 +112,13 @@ public class TasksStatisticsController {
      * @throws DAOException Se si verifica un errore durante l'interrogazione del database.
      */
     private void loadCategoryTimeData(int idUtente) throws DAOException {
-        // Recupera una mappa <NomeCategoria, SecondiTotali> dal DAO
+
         Map<String, Long> data = DAOStatistics.getInstance().getTimeSpentByCategory(idUtente);
         XYChart.Series<String, Number> series = new XYChart.Series<>();
         series.setName("Tempo Speso (Minuti)");
 
         for (Map.Entry<String, Long> entry : data.entrySet()) {
-            // Converte i secondi in minuti
+
             double minuti = entry.getValue() / 60.0;
             series.getData().add(new XYChart.Data<>(entry.getKey(), minuti));
         }
@@ -132,7 +126,7 @@ public class TasksStatisticsController {
         barChartCategorie.getData().clear();
         barChartCategorie.getData().add(series);
         barChartCategorie.setTitle("Tempo Speso per Categoria");
-        // Disabilita l'animazione per evitare glitch grafici durante ricaricamenti frequenti
+
         barChartCategorie.setAnimated(false);
     }
 
@@ -147,7 +141,7 @@ public class TasksStatisticsController {
      * @throws DAOException Se si verifica un errore durante l'interrogazione del database.
      */
     private void loadCompletionStats(int idUtente) throws DAOException {
-        // stats[0] = Task Aperti, stats[1] = Task Completati
+
         int[] stats = DAOStatistics.getInstance().getCompletionStats(idUtente);
         int taskAperti = stats[0];
         int taskCompletati = stats[1];
@@ -155,44 +149,43 @@ public class TasksStatisticsController {
         if (lblTaskAperti != null) lblTaskAperti.setText(String.valueOf(taskAperti));
         if (lblTaskCompletati != null) lblTaskCompletati.setText(String.valueOf(taskCompletati));
 
-        // --- Logica Calcolo Workload ---
+
         if (lblWorkload != null) {
             String testo;
             String colore;
 
-            // Definizione soglie per il carico di lavoro
+
             if (taskAperti == 0) {
                 testo = "Niente da fare!";
-                colore = "#50fa7b"; // Verde
+                colore = "#50fa7b";
             } else if (taskAperti <= 4) {
                 testo = "Leggero";
-                colore = "#8be9fd"; // Ciano
+                colore = "#8be9fd";
             } else if (taskAperti <= 9) {
                 testo = "Moderato";
-                colore = "#ffb86c"; // Arancione
+                colore = "#ffb86c";
             } else {
                 testo = "Pesante";
-                colore = "#ff5555"; // Rosso
+                colore = "#ff5555";
             }
 
-            // --- Creazione Grafica Personalizzata (Numero Grande + Testo Piccolo) ---
 
-            // 1. Label per il numero (Font grande)
+
             Label numLabel = new Label(String.valueOf(taskAperti));
             numLabel.setStyle("-fx-text-fill: " + colore + "; -fx-font-size: 42px; -fx-font-weight: bold;");
 
-            // 2. Label per la descrizione (Font piccolo)
+
             Label textLabel = new Label(testo);
             textLabel.setStyle("-fx-text-fill: " + colore + "; -fx-font-size: 14px; -fx-opacity: 0.9;");
 
-            // 3. Contenitore Verticale (VBox)
+
             javafx.scene.layout.VBox box = new javafx.scene.layout.VBox(-5);
             box.setAlignment(javafx.geometry.Pos.CENTER);
             box.getChildren().addAll(numLabel, textLabel);
 
-            // 4. Inserimento del VBox dentro la Label originale
+
             lblWorkload.setGraphic(box);
-            lblWorkload.setText(""); // Rimuove eventuale testo preesistente
+            lblWorkload.setText("");
             lblWorkload.setContentDisplay(javafx.scene.control.ContentDisplay.CENTER);
         }
     }

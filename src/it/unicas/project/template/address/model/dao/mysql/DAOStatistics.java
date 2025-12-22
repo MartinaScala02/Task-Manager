@@ -52,7 +52,7 @@ public class DAOStatistics {
         Statement st = null;
         try {
             st = DAOMySQLSettings.getStatement();
-            // Aggiunto filtro WHERE idUtente
+
             String sql = "SELECT priorità, COUNT(*) as totale " +
                     "FROM Tasks " +
                     "WHERE idUtente = " + idUtente + " " +
@@ -99,14 +99,13 @@ public class DAOStatistics {
         try {
             st = DAOMySQLSettings.getStatement();
 
-            // La JOIN collega Timer -> Task -> Categoria.
-            // Filtriamo sulla tabella Tasks (t.idUtente)
+
             String sql = "SELECT c.nomeCategoria, SUM(ts.durata) as totaleTempo " +
                     "FROM TimerSessions ts " +
                     "JOIN Tasks t ON ts.idTask = t.idTask " +
                     "JOIN Categorie c ON t.idCategoria = c.idCategoria " +
                     "WHERE ts.fine IS NOT NULL " +
-                    "AND t.idUtente = " + idUtente + " " + // FILTRO UTENTE
+                    "AND t.idUtente = " + idUtente + " " +
                     "GROUP BY c.nomeCategoria";
 
             logger.info("Statistiche Tempo/Categoria (User " + idUtente + "): " + sql);
